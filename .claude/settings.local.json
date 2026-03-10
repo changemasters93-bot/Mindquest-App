@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(textutil -convert txt /Users/neha.berwal/Downloads/MQ2/files3/Mindquest_PRD_v3.docx -output /tmp/prd.txt)",
+      "Bash(textutil -convert txt /Users/neha.berwal/Downloads/MQ2/files3/Mindquest_Architecture_v3.docx -output /tmp/arch.txt)",
+      "Bash(textutil -convert txt /Users/neha.berwal/Downloads/MQ2/Mindquest_App_Integration_Guide.docx -output /tmp/integration.txt)",
+      "Bash(grep -l \"LaunchedEffect\" /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/commonMain/kotlin/com/android/mindquest/presentation/**/*.kt)",
+      "Bash(find /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/commonMain/kotlin/com/android/mindquest/presentation -name \"*.kt\" -exec grep -l \"LaunchedEffect\" {} ;)",
+      "Bash(grep -n \"fun parseHexColor\\\\|fun parseResultHexColor\" /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/commonMain/kotlin/com/android/mindquest/presentation/quiz/*.kt)",
+      "Bash(grep -n \"MindquestColors\\\\.textPrimary\" /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/commonMain/kotlin/com/android/mindquest/presentation/**/*.kt)",
+      "Bash(find /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/commonMain/kotlin/com/android/mindquest/presentation -name \"*.kt\" -exec grep -l \"MindquestColors\\\\..*[a-z]\" {} ;)",
+      "Bash(./gradlew :composeApp:assembleDebug)",
+      "Bash(./gradlew :composeApp:compileDebugKotlinAndroid)",
+      "Bash(./gradlew composeApp:compileDebugKotlinAndroid)",
+      "Bash(./gradlew compileKotlinDesktop)",
+      "Bash(./gradlew compileCommonMainKotlinMetadata)",
+      "Bash(./gradlew :composeApp:compileKotlinIosSimulatorArm64)",
+      "Bash(./gradlew compileKotlinIosSimulatorArm64)"
+    ]
+  }
+}

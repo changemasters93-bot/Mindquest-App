@@ -1,0 +1,581 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:2:1-27:12
+INJECTED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:2:1-27:12
+INJECTED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:2:1-27:12
+INJECTED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:2:1-27:12
+MERGED from [io.insert-koin:koin-android:4.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/836ad83df0a4419b0cbcebb7ef8e2668/transformed/koin-android-4.0.0/AndroidManifest.xml:2:1-9:12
+MERGED from [io.coil-kt.coil3:coil-network-ktor3-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/af7d5032d401260d672b4d0a89efbd36/transformed/coil-network-ktor3-release/AndroidManifest.xml:2:1-7:12
+MERGED from [io.coil-kt.coil3:coil-compose-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/3a0c306905957954f23b4058c34eb0e0/transformed/coil-compose-release/AndroidManifest.xml:2:1-7:12
+MERGED from [io.coil-kt.coil3:coil-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/a74c45223f912bfc793c968610c771d0/transformed/coil-release/AndroidManifest.xml:2:1-7:12
+MERGED from [io.coil-kt.coil3:coil-compose-core-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/6b9bb6e78994c14da7ba8a5500a8018f/transformed/coil-compose-core-release/AndroidManifest.xml:2:1-7:12
+MERGED from [io.coil-kt.coil3:coil-network-core-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/e5f25cd32d3ca3a48d9d2fbf6ecc22c2/transformed/coil-network-core-release/AndroidManifest.xml:2:1-7:12
+MERGED from [io.coil-kt.coil3:coil-core-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/9480cb0a47ab452fbd6d175ca2039d19/transformed/coil-core-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.appcompat:appcompat-resources:1.7.0] /Users/neha.berwal/.gradle/caches/transforms-4/c3c3a9aa08fc076ec3851813b5ca2802/transformed/appcompat-resources-1.7.0/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.appcompat:appcompat:1.7.0] /Users/neha.berwal/.gradle/caches/transforms-4/dab300e74279b4a9b298c7021b83cb17/transformed/appcompat-1.7.0/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.navigation:navigation-common-ktx:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/23c27e22a8e5b528d759fd74b6a85413/transformed/navigation-common-ktx-2.8.0-rc01/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.navigation:navigation-runtime:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/02d47c7e6d128cfdeae808e752c11dd1/transformed/navigation-runtime-2.8.0-rc01/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.navigation:navigation-common:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/4a515b37be3a83b1bd88a004e0b3a2b4/transformed/navigation-common-2.8.0-rc01/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.navigation:navigation-runtime-ktx:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/c2cfa6ac14c672bacacf398a8e71578b/transformed/navigation-runtime-ktx-2.8.0-rc01/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.navigation:navigation-compose:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/d0a3f92fc0f697962b55eb0d72e6d185/transformed/navigation-compose-2.8.0-rc01/AndroidManifest.xml:2:1-7:12
+MERGED from [io.github.jan-tennert.supabase:compose-auth-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/10b8c0e4fd237c0a47a7a7b620ebbf54/transformed/compose-auth-debug/AndroidManifest.xml:2:1-20:12
+MERGED from [io.github.jan-tennert.supabase:compose-auth-ui-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/6dfbeedef0d3c17fcbdd6b25391111a0/transformed/compose-auth-ui-debug/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.material3:material3-android:1.3.1] /Users/neha.berwal/.gradle/caches/transforms-4/d95bfcfb4b9d608a15bc055a2ad2c598/transformed/material3-release/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.activity:activity-compose:1.9.3] /Users/neha.berwal/.gradle/caches/transforms-4/fd7a38447d753944358c0fc7038a9c1b/transformed/activity-compose-1.9.3/AndroidManifest.xml:2:1-7:12
+MERGED from [com.google.android.libraries.identity.googleid:googleid:1.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/e1e7913d552cc9d8ed7651f9d01f1010/transformed/googleid-1.1.1/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.credentials:credentials:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/12ca2f56652472dcf1e733edfd37fbe9/transformed/credentials-1.3.0/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:17:1-44:12
+MERGED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:17:1-40:12
+MERGED from [com.google.android.gms:play-services-fido:21.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/35a09ca9872f1f8b8265693e751119a1/transformed/play-services-fido-21.0.0/AndroidManifest.xml:2:1-10:12
+MERGED from [com.google.android.gms:play-services-auth-api-phone:18.0.2] /Users/neha.berwal/.gradle/caches/transforms-4/9ea5a0a1b2d9d853e0c3b600eaea5d64/transformed/play-services-auth-api-phone-18.0.2/AndroidManifest.xml:2:1-7:12
+MERGED from [com.google.android.gms:play-services-auth-base:18.0.10] /Users/neha.berwal/.gradle/caches/transforms-4/035f833d04d96b6d5057af07b379f1a9/transformed/play-services-auth-base-18.0.10/AndroidManifest.xml:2:1-7:12
+MERGED from [com.google.android.gms:play-services-base:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/47bdf962a16e83708326eb91b741a2be/transformed/play-services-base-18.3.0/AndroidManifest.xml:16:1-24:12
+MERGED from [com.google.android.gms:play-services-tasks:18.1.0] /Users/neha.berwal/.gradle/caches/transforms-4/605cfaff8e81e68c1246d96bd7a84265/transformed/play-services-tasks-18.1.0/AndroidManifest.xml:2:1-6:12
+MERGED from [com.google.android.gms:play-services-basement:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/aeec6605419521f7da95ef3febfeda5e/transformed/play-services-basement-18.3.0/AndroidManifest.xml:16:1-26:12
+MERGED from [androidx.fragment:fragment:1.8.3] /Users/neha.berwal/.gradle/caches/transforms-4/894ac3f698e9046891ef5f8db19c83c4/transformed/fragment-1.8.3/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.fragment:fragment-ktx:1.8.3] /Users/neha.berwal/.gradle/caches/transforms-4/e38cc04b24cac396027ee63edd1bfd1f/transformed/fragment-ktx-1.8.3/AndroidManifest.xml:2:1-7:12
+MERGED from [org.jetbrains.compose.components:components-resources-android:1.7.3] /Users/neha.berwal/.gradle/caches/transforms-4/6b3ba55b6b506e80a745c34d961e60bc/transformed/library-release/AndroidManifest.xml:2:1-16:12
+MERGED from [androidx.compose.animation:animation-core-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/38007c0bff699b03635b264ce293c661/transformed/animation-core-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.material:material-ripple-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/a1528890d088f69ea8b1c1514e43ff55/transformed/material-ripple-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.animation:animation-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/b1d7e10799b373995936d6f1ca2b996a/transformed/animation-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.foundation:foundation-layout-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/5b6db519d3065be166e97ac10a835f95/transformed/foundation-layout-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.foundation:foundation-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/a7a161b5598912beb8cbd95e2cd252c4/transformed/foundation-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-unit-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/c70720a5440a9b7e83b4abad5b94f03c/transformed/ui-unit-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-geometry-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/dea1d6e630d663a834f16839e1e8fce0/transformed/ui-geometry-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-graphics-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/71359a5c6c4bb56cc524e9c5eab0f68c/transformed/ui-graphics-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-util-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/2bc7f3f6d2a258acd883ecd11f06a5d9/transformed/ui-util-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-text-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/9df008a39f5eafdd4ee219ac85c87914/transformed/ui-text-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.material:material-icons-core-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/7e6e286df2fad68129e9142e7c0f7377/transformed/material-icons-core-release/AndroidManifest.xml:2:1-7:12
+MERGED from [com.google.accompanist:accompanist-drawablepainter:0.36.0] /Users/neha.berwal/.gradle/caches/transforms-4/3ebdc57d8ff1eb268bbf99b784b16c70/transformed/accompanist-drawablepainter-0.36.0/AndroidManifest.xml:17:1-23:12
+MERGED from [androidx.emoji2:emoji2-views-helper:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/23fda12447320605552e1e3658dabcb9/transformed/emoji2-views-helper-1.3.0/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.emoji2:emoji2:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/927c6c1b97872350078f13d27ecbac35/transformed/emoji2-1.3.0/AndroidManifest.xml:17:1-35:12
+MERGED from [io.github.jan-tennert.supabase:realtime-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/227151c7751d15d86055e5d282246104/transformed/realtime-kt-debug/AndroidManifest.xml:2:1-7:12
+MERGED from [io.github.jan-tennert.supabase:postgrest-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/7931df4215b015a3a2144155bdc41760/transformed/postgrest-kt-debug/AndroidManifest.xml:2:1-7:12
+MERGED from [io.github.jan-tennert.supabase:auth-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/db9d55d70758258ddc6e2d68a90f03fd/transformed/auth-kt-debug/AndroidManifest.xml:2:1-20:12
+MERGED from [io.github.jan-tennert.supabase:supabase-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/0394a553dc7dff189816ad267714bc65/transformed/supabase-kt-debug/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.loader:loader:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/aa0c579ce096934d1c97b88cbbd87cab/transformed/loader-1.0.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.savedstate:savedstate-ktx:1.2.1] /Users/neha.berwal/.gradle/caches/transforms-4/b5c0ad24e1b667b7471f47815a6bcc25/transformed/savedstate-ktx-1.2.1/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.savedstate:savedstate:1.2.1] /Users/neha.berwal/.gradle/caches/transforms-4/60ce65557941cbb15c62fbfca2d3e81f/transformed/savedstate-1.2.1/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/73e251ba663df53d2006f198a3dbfe2a/transformed/lifecycle-viewmodel-2.8.7/AndroidManifest.xml:2:1-5:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/eb004ce9749f97732c0ca060b6bf6f77/transformed/lifecycle-viewmodel-release/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-runtime-ktx-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/0a42ca2498737438d54e1582d6f47c6a/transformed/lifecycle-runtime-ktx-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.lifecycle:lifecycle-runtime-compose-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/4358eb50b9999e8dbe7db9259226ac25/transformed/lifecycle-runtime-compose-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.lifecycle:lifecycle-runtime-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/8908e9d834da03fd5c62217144934311/transformed/lifecycle-runtime-release/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/05c31c19700d6778150f5b9879e8e4fa/transformed/lifecycle-viewmodel-savedstate-2.8.7/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/8a142993e39b7f4275784ba04d8f41ca/transformed/lifecycle-viewmodel-ktx-2.8.7/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.lifecycle:lifecycle-livedata-core-ktx:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/f4cd81b71f36b5887e141283525372dc/transformed/lifecycle-livedata-core-ktx-2.8.7/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/a3c08ac7946a71ff7f8eadc1fdb19b34/transformed/lifecycle-livedata-core-2.8.7/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/4a83757d053ca5b675119cfd55b6d35d/transformed/lifecycle-livedata-2.8.7/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.lifecycle:lifecycle-process:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/639000473908c5cd800002595ba77df4/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:17:1-35:12
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-compose-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/fd2cc92162e5120eee760ab677cc5507/transformed/lifecycle-viewmodel-compose-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.ui:ui-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/46ec6bff296eecefa2a35d736a9b3f7f/transformed/ui-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.activity:activity-ktx:1.9.3] /Users/neha.berwal/.gradle/caches/transforms-4/6825808404a99a8112be64bff786a4e8/transformed/activity-ktx-1.9.3/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.activity:activity:1.9.3] /Users/neha.berwal/.gradle/caches/transforms-4/3add1cbff114b0ede048450f9519584c/transformed/activity-1.9.3/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/3ba069d739a9eb4d4e980a96ff1c81f6/transformed/drawerlayout-1.0.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.browser:browser:1.8.0] /Users/neha.berwal/.gradle/caches/transforms-4/9fd5b2dba5dc20e382a45abd6ece608e/transformed/browser-1.8.0/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] /Users/neha.berwal/.gradle/caches/transforms-4/40e3376064721c458c6fe1d6c8e75efd/transformed/vectordrawable-animated-1.1.0/AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] /Users/neha.berwal/.gradle/caches/transforms-4/e37f9a170fc0afc3b08defd6e3d10d27/transformed/vectordrawable-1.1.0/AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.viewpager:viewpager:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/461aa269327cc732d5d096f96a061ccd/transformed/viewpager-1.0.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.customview:customview:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/75cd7490dfd69222ff1344c2a8e0b3ef/transformed/customview-1.0.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.autofill:autofill:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/3cede240b261354c349202a54f9ace7c/transformed/autofill-1.0.0/AndroidManifest.xml:17:1-24:12
+MERGED from [androidx.graphics:graphics-path:1.0.1] /Users/neha.berwal/.gradle/caches/transforms-4/c2e30ca7b274104746c3ebae72a6858e/transformed/graphics-path-1.0.1/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:17:1-30:12
+MERGED from [org.jetbrains.androidx.core:core-bundle-android-debug:1.0.1] /Users/neha.berwal/.gradle/caches/transforms-4/c020940ceddb26e91d7a1035d06ec290/transformed/core-bundle-debug/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.customview:customview-poolingcontainer:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/73c68f9720b662d4ceed0616e4672d97/transformed/customview-poolingcontainer-1.0.0/AndroidManifest.xml:17:1-23:12
+MERGED from [androidx.core:core-ktx:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/26f511469096a4a80e026b2c24eae4cb/transformed/core-ktx-1.15.0/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.runtime:runtime-saveable-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/570a0b900538ce9c85602023c8d7b2aa/transformed/runtime-saveable-release/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.compose.runtime:runtime-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/c037dbb27727c69163c5c95f67a0dd42/transformed/runtime-release/AndroidManifest.xml:2:1-7:12
+MERGED from [com.russhwolf:multiplatform-settings-coroutines-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/b3844258a4037f6a728003d52ff2ed10/transformed/multiplatform-settings-coroutines-debug/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.annotation:annotation-experimental:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/2c0297f29541f0a7e2799538721e8030/transformed/annotation-experimental-1.4.1/AndroidManifest.xml:2:1-7:12
+MERGED from [com.russhwolf:multiplatform-settings-no-arg-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/8e162c82f0c2d3e0c115a086eaaa5281/transformed/multiplatform-settings-no-arg-debug/AndroidManifest.xml:17:1-35:12
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/85052572db723120adef8d91df4cb94f/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:17:1-27:12
+MERGED from [co.touchlab:kermit-android-debug:2.0.5] /Users/neha.berwal/.gradle/caches/transforms-4/6b84cf923c74604cf425cdbf0ba0d804/transformed/kermit-debug/AndroidManifest.xml:2:1-7:12
+MERGED from [com.russhwolf:multiplatform-settings-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/55ecab4779823a691d1a1a05cc2c1bdc/transformed/multiplatform-settings-debug/AndroidManifest.xml:2:1-7:12
+MERGED from [androidx.interpolator:interpolator:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/f00de68a44e6a05d2139edb1ff1d2471/transformed/interpolator-1.0.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:17:1-55:12
+MERGED from [androidx.startup:startup-runtime:1.2.0] /Users/neha.berwal/.gradle/caches/transforms-4/144b0af0ec64f5a7320b24018a979dd6/transformed/startup-runtime-1.2.0/AndroidManifest.xml:17:1-31:12
+MERGED from [androidx.tracing:tracing:1.2.0] /Users/neha.berwal/.gradle/caches/transforms-4/9750551dba9945a48da80ef87963de84/transformed/tracing-1.2.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/982889e93e1800a7f572c30ee5e9ddef/transformed/cursoradapter-1.0.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.arch.core:core-runtime:2.2.0] /Users/neha.berwal/.gradle/caches/transforms-4/19884a27111590406766e5a66b78ac39/transformed/core-runtime-2.2.0/AndroidManifest.xml:17:1-22:12
+MERGED from [androidx.exifinterface:exifinterface:1.3.7] /Users/neha.berwal/.gradle/caches/transforms-4/660478c1728d003d0fdf811ba5510b62/transformed/exifinterface-1.3.7/AndroidManifest.xml:17:1-24:12
+MERGED from [co.touchlab:kermit-core-android-debug:2.0.5] /Users/neha.berwal/.gradle/caches/transforms-4/6d56445b2c5a95742d4371f3e24b43d1/transformed/kermit-core-debug/AndroidManifest.xml:2:1-7:12
+MERGED from [com.caverock:androidsvg-aar:1.4] /Users/neha.berwal/.gradle/caches/transforms-4/a4d6f4b43a4a6c590f94bd4a5b32d0b2/transformed/androidsvg-aar-1.4/AndroidManifest.xml:2:1-11:12
+	package
+		INJECTED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml
+	android:versionName
+		INJECTED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml
+	android:versionCode
+		INJECTED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml
+	xmlns:android
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:2:11-69
+uses-permission#android.permission.INTERNET
+ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:4:5-67
+	android:name
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:4:22-64
+uses-permission#android.permission.ACCESS_NETWORK_STATE
+ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:5:5-79
+	android:name
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:5:22-76
+application
+ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:7:5-26:19
+INJECTED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:7:5-26:19
+MERGED from [io.insert-koin:koin-android:4.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/836ad83df0a4419b0cbcebb7ef8e2668/transformed/koin-android-4.0.0/AndroidManifest.xml:7:5-20
+MERGED from [io.insert-koin:koin-android:4.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/836ad83df0a4419b0cbcebb7ef8e2668/transformed/koin-android-4.0.0/AndroidManifest.xml:7:5-20
+MERGED from [io.github.jan-tennert.supabase:compose-auth-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/10b8c0e4fd237c0a47a7a7b620ebbf54/transformed/compose-auth-debug/AndroidManifest.xml:8:5-18:19
+MERGED from [io.github.jan-tennert.supabase:compose-auth-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/10b8c0e4fd237c0a47a7a7b620ebbf54/transformed/compose-auth-debug/AndroidManifest.xml:8:5-18:19
+MERGED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:23:5-42:19
+MERGED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:23:5-42:19
+MERGED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:22:5-38:19
+MERGED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:22:5-38:19
+MERGED from [com.google.android.gms:play-services-fido:21.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/35a09ca9872f1f8b8265693e751119a1/transformed/play-services-fido-21.0.0/AndroidManifest.xml:7:5-8:19
+MERGED from [com.google.android.gms:play-services-fido:21.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/35a09ca9872f1f8b8265693e751119a1/transformed/play-services-fido-21.0.0/AndroidManifest.xml:7:5-8:19
+MERGED from [com.google.android.gms:play-services-base:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/47bdf962a16e83708326eb91b741a2be/transformed/play-services-base-18.3.0/AndroidManifest.xml:19:5-23:19
+MERGED from [com.google.android.gms:play-services-base:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/47bdf962a16e83708326eb91b741a2be/transformed/play-services-base-18.3.0/AndroidManifest.xml:19:5-23:19
+MERGED from [com.google.android.gms:play-services-tasks:18.1.0] /Users/neha.berwal/.gradle/caches/transforms-4/605cfaff8e81e68c1246d96bd7a84265/transformed/play-services-tasks-18.1.0/AndroidManifest.xml:5:5-20
+MERGED from [com.google.android.gms:play-services-tasks:18.1.0] /Users/neha.berwal/.gradle/caches/transforms-4/605cfaff8e81e68c1246d96bd7a84265/transformed/play-services-tasks-18.1.0/AndroidManifest.xml:5:5-20
+MERGED from [com.google.android.gms:play-services-basement:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/aeec6605419521f7da95ef3febfeda5e/transformed/play-services-basement-18.3.0/AndroidManifest.xml:20:5-24:19
+MERGED from [com.google.android.gms:play-services-basement:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/aeec6605419521f7da95ef3febfeda5e/transformed/play-services-basement-18.3.0/AndroidManifest.xml:20:5-24:19
+MERGED from [org.jetbrains.compose.components:components-resources-android:1.7.3] /Users/neha.berwal/.gradle/caches/transforms-4/6b3ba55b6b506e80a745c34d961e60bc/transformed/library-release/AndroidManifest.xml:7:5-14:19
+MERGED from [org.jetbrains.compose.components:components-resources-android:1.7.3] /Users/neha.berwal/.gradle/caches/transforms-4/6b3ba55b6b506e80a745c34d961e60bc/transformed/library-release/AndroidManifest.xml:7:5-14:19
+MERGED from [androidx.emoji2:emoji2:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/927c6c1b97872350078f13d27ecbac35/transformed/emoji2-1.3.0/AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.emoji2:emoji2:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/927c6c1b97872350078f13d27ecbac35/transformed/emoji2-1.3.0/AndroidManifest.xml:23:5-33:19
+MERGED from [io.github.jan-tennert.supabase:auth-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/db9d55d70758258ddc6e2d68a90f03fd/transformed/auth-kt-debug/AndroidManifest.xml:8:5-18:19
+MERGED from [io.github.jan-tennert.supabase:auth-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/db9d55d70758258ddc6e2d68a90f03fd/transformed/auth-kt-debug/AndroidManifest.xml:8:5-18:19
+MERGED from [androidx.lifecycle:lifecycle-process:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/639000473908c5cd800002595ba77df4/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.lifecycle:lifecycle-process:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/639000473908c5cd800002595ba77df4/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:28:5-89
+MERGED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:28:5-89
+MERGED from [com.russhwolf:multiplatform-settings-no-arg-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/8e162c82f0c2d3e0c115a086eaaa5281/transformed/multiplatform-settings-no-arg-debug/AndroidManifest.xml:23:5-33:19
+MERGED from [com.russhwolf:multiplatform-settings-no-arg-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/8e162c82f0c2d3e0c115a086eaaa5281/transformed/multiplatform-settings-no-arg-debug/AndroidManifest.xml:23:5-33:19
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/85052572db723120adef8d91df4cb94f/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:24:5-25:19
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/85052572db723120adef8d91df4cb94f/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:24:5-25:19
+MERGED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:23:5-53:19
+MERGED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:23:5-53:19
+MERGED from [androidx.startup:startup-runtime:1.2.0] /Users/neha.berwal/.gradle/caches/transforms-4/144b0af0ec64f5a7320b24018a979dd6/transformed/startup-runtime-1.2.0/AndroidManifest.xml:23:5-29:19
+MERGED from [androidx.startup:startup-runtime:1.2.0] /Users/neha.berwal/.gradle/caches/transforms-4/144b0af0ec64f5a7320b24018a979dd6/transformed/startup-runtime-1.2.0/AndroidManifest.xml:23:5-29:19
+	android:extractNativeLibs
+		INJECTED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml
+	android:appComponentFactory
+		ADDED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:28:18-86
+	android:supportsRtl
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:13:9-35
+	android:label
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:11:9-34
+	android:roundIcon
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:12:9-54
+	android:icon
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:10:9-43
+	android:allowBackup
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:9:9-35
+	android:theme
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:14:9-72
+	android:name
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:8:9-45
+activity#com.android.mindquest.MainActivity
+ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:16:9-25:20
+	android:windowSoftInputMode
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:20:13-55
+	android:exported
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:18:13-36
+	android:configChanges
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:19:13-87
+	android:name
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:17:13-41
+intent-filter#action:name:android.intent.action.MAIN+category:name:android.intent.category.LAUNCHER
+ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:21:13-24:29
+action#android.intent.action.MAIN
+ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:22:17-69
+	android:name
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:22:25-66
+category#android.intent.category.LAUNCHER
+ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:23:17-77
+	android:name
+		ADDED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml:23:27-74
+uses-sdk
+INJECTED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml
+INJECTED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml
+MERGED from [io.insert-koin:koin-android:4.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/836ad83df0a4419b0cbcebb7ef8e2668/transformed/koin-android-4.0.0/AndroidManifest.xml:5:5-44
+MERGED from [io.insert-koin:koin-android:4.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/836ad83df0a4419b0cbcebb7ef8e2668/transformed/koin-android-4.0.0/AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-network-ktor3-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/af7d5032d401260d672b4d0a89efbd36/transformed/coil-network-ktor3-release/AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-network-ktor3-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/af7d5032d401260d672b4d0a89efbd36/transformed/coil-network-ktor3-release/AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-compose-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/3a0c306905957954f23b4058c34eb0e0/transformed/coil-compose-release/AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-compose-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/3a0c306905957954f23b4058c34eb0e0/transformed/coil-compose-release/AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/a74c45223f912bfc793c968610c771d0/transformed/coil-release/AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/a74c45223f912bfc793c968610c771d0/transformed/coil-release/AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-compose-core-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/6b9bb6e78994c14da7ba8a5500a8018f/transformed/coil-compose-core-release/AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-compose-core-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/6b9bb6e78994c14da7ba8a5500a8018f/transformed/coil-compose-core-release/AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-network-core-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/e5f25cd32d3ca3a48d9d2fbf6ecc22c2/transformed/coil-network-core-release/AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-network-core-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/e5f25cd32d3ca3a48d9d2fbf6ecc22c2/transformed/coil-network-core-release/AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-core-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/9480cb0a47ab452fbd6d175ca2039d19/transformed/coil-core-release/AndroidManifest.xml:5:5-44
+MERGED from [io.coil-kt.coil3:coil-core-android:3.0.4] /Users/neha.berwal/.gradle/caches/transforms-4/9480cb0a47ab452fbd6d175ca2039d19/transformed/coil-core-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.appcompat:appcompat-resources:1.7.0] /Users/neha.berwal/.gradle/caches/transforms-4/c3c3a9aa08fc076ec3851813b5ca2802/transformed/appcompat-resources-1.7.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.appcompat:appcompat-resources:1.7.0] /Users/neha.berwal/.gradle/caches/transforms-4/c3c3a9aa08fc076ec3851813b5ca2802/transformed/appcompat-resources-1.7.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.appcompat:appcompat:1.7.0] /Users/neha.berwal/.gradle/caches/transforms-4/dab300e74279b4a9b298c7021b83cb17/transformed/appcompat-1.7.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.appcompat:appcompat:1.7.0] /Users/neha.berwal/.gradle/caches/transforms-4/dab300e74279b4a9b298c7021b83cb17/transformed/appcompat-1.7.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.navigation:navigation-common-ktx:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/23c27e22a8e5b528d759fd74b6a85413/transformed/navigation-common-ktx-2.8.0-rc01/AndroidManifest.xml:5:5-44
+MERGED from [androidx.navigation:navigation-common-ktx:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/23c27e22a8e5b528d759fd74b6a85413/transformed/navigation-common-ktx-2.8.0-rc01/AndroidManifest.xml:5:5-44
+MERGED from [androidx.navigation:navigation-runtime:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/02d47c7e6d128cfdeae808e752c11dd1/transformed/navigation-runtime-2.8.0-rc01/AndroidManifest.xml:20:5-44
+MERGED from [androidx.navigation:navigation-runtime:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/02d47c7e6d128cfdeae808e752c11dd1/transformed/navigation-runtime-2.8.0-rc01/AndroidManifest.xml:20:5-44
+MERGED from [androidx.navigation:navigation-common:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/4a515b37be3a83b1bd88a004e0b3a2b4/transformed/navigation-common-2.8.0-rc01/AndroidManifest.xml:20:5-44
+MERGED from [androidx.navigation:navigation-common:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/4a515b37be3a83b1bd88a004e0b3a2b4/transformed/navigation-common-2.8.0-rc01/AndroidManifest.xml:20:5-44
+MERGED from [androidx.navigation:navigation-runtime-ktx:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/c2cfa6ac14c672bacacf398a8e71578b/transformed/navigation-runtime-ktx-2.8.0-rc01/AndroidManifest.xml:5:5-44
+MERGED from [androidx.navigation:navigation-runtime-ktx:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/c2cfa6ac14c672bacacf398a8e71578b/transformed/navigation-runtime-ktx-2.8.0-rc01/AndroidManifest.xml:5:5-44
+MERGED from [androidx.navigation:navigation-compose:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/d0a3f92fc0f697962b55eb0d72e6d185/transformed/navigation-compose-2.8.0-rc01/AndroidManifest.xml:5:5-44
+MERGED from [androidx.navigation:navigation-compose:2.8.0-rc01] /Users/neha.berwal/.gradle/caches/transforms-4/d0a3f92fc0f697962b55eb0d72e6d185/transformed/navigation-compose-2.8.0-rc01/AndroidManifest.xml:5:5-44
+MERGED from [io.github.jan-tennert.supabase:compose-auth-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/10b8c0e4fd237c0a47a7a7b620ebbf54/transformed/compose-auth-debug/AndroidManifest.xml:6:5-44
+MERGED from [io.github.jan-tennert.supabase:compose-auth-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/10b8c0e4fd237c0a47a7a7b620ebbf54/transformed/compose-auth-debug/AndroidManifest.xml:6:5-44
+MERGED from [io.github.jan-tennert.supabase:compose-auth-ui-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/6dfbeedef0d3c17fcbdd6b25391111a0/transformed/compose-auth-ui-debug/AndroidManifest.xml:5:5-44
+MERGED from [io.github.jan-tennert.supabase:compose-auth-ui-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/6dfbeedef0d3c17fcbdd6b25391111a0/transformed/compose-auth-ui-debug/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material3:material3-android:1.3.1] /Users/neha.berwal/.gradle/caches/transforms-4/d95bfcfb4b9d608a15bc055a2ad2c598/transformed/material3-release/AndroidManifest.xml:20:5-44
+MERGED from [androidx.compose.material3:material3-android:1.3.1] /Users/neha.berwal/.gradle/caches/transforms-4/d95bfcfb4b9d608a15bc055a2ad2c598/transformed/material3-release/AndroidManifest.xml:20:5-44
+MERGED from [androidx.activity:activity-compose:1.9.3] /Users/neha.berwal/.gradle/caches/transforms-4/fd7a38447d753944358c0fc7038a9c1b/transformed/activity-compose-1.9.3/AndroidManifest.xml:5:5-44
+MERGED from [androidx.activity:activity-compose:1.9.3] /Users/neha.berwal/.gradle/caches/transforms-4/fd7a38447d753944358c0fc7038a9c1b/transformed/activity-compose-1.9.3/AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.libraries.identity.googleid:googleid:1.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/e1e7913d552cc9d8ed7651f9d01f1010/transformed/googleid-1.1.1/AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.libraries.identity.googleid:googleid:1.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/e1e7913d552cc9d8ed7651f9d01f1010/transformed/googleid-1.1.1/AndroidManifest.xml:5:5-44
+MERGED from [androidx.credentials:credentials:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/12ca2f56652472dcf1e733edfd37fbe9/transformed/credentials-1.3.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.credentials:credentials:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/12ca2f56652472dcf1e733edfd37fbe9/transformed/credentials-1.3.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:21:5-44
+MERGED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:21:5-44
+MERGED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:20:5-44
+MERGED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:20:5-44
+MERGED from [com.google.android.gms:play-services-fido:21.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/35a09ca9872f1f8b8265693e751119a1/transformed/play-services-fido-21.0.0/AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.gms:play-services-fido:21.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/35a09ca9872f1f8b8265693e751119a1/transformed/play-services-fido-21.0.0/AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.gms:play-services-auth-api-phone:18.0.2] /Users/neha.berwal/.gradle/caches/transforms-4/9ea5a0a1b2d9d853e0c3b600eaea5d64/transformed/play-services-auth-api-phone-18.0.2/AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.gms:play-services-auth-api-phone:18.0.2] /Users/neha.berwal/.gradle/caches/transforms-4/9ea5a0a1b2d9d853e0c3b600eaea5d64/transformed/play-services-auth-api-phone-18.0.2/AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.gms:play-services-auth-base:18.0.10] /Users/neha.berwal/.gradle/caches/transforms-4/035f833d04d96b6d5057af07b379f1a9/transformed/play-services-auth-base-18.0.10/AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.gms:play-services-auth-base:18.0.10] /Users/neha.berwal/.gradle/caches/transforms-4/035f833d04d96b6d5057af07b379f1a9/transformed/play-services-auth-base-18.0.10/AndroidManifest.xml:5:5-44
+MERGED from [com.google.android.gms:play-services-base:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/47bdf962a16e83708326eb91b741a2be/transformed/play-services-base-18.3.0/AndroidManifest.xml:18:5-43
+MERGED from [com.google.android.gms:play-services-base:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/47bdf962a16e83708326eb91b741a2be/transformed/play-services-base-18.3.0/AndroidManifest.xml:18:5-43
+MERGED from [com.google.android.gms:play-services-tasks:18.1.0] /Users/neha.berwal/.gradle/caches/transforms-4/605cfaff8e81e68c1246d96bd7a84265/transformed/play-services-tasks-18.1.0/AndroidManifest.xml:4:5-43
+MERGED from [com.google.android.gms:play-services-tasks:18.1.0] /Users/neha.berwal/.gradle/caches/transforms-4/605cfaff8e81e68c1246d96bd7a84265/transformed/play-services-tasks-18.1.0/AndroidManifest.xml:4:5-43
+MERGED from [com.google.android.gms:play-services-basement:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/aeec6605419521f7da95ef3febfeda5e/transformed/play-services-basement-18.3.0/AndroidManifest.xml:18:5-43
+MERGED from [com.google.android.gms:play-services-basement:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/aeec6605419521f7da95ef3febfeda5e/transformed/play-services-basement-18.3.0/AndroidManifest.xml:18:5-43
+MERGED from [androidx.fragment:fragment:1.8.3] /Users/neha.berwal/.gradle/caches/transforms-4/894ac3f698e9046891ef5f8db19c83c4/transformed/fragment-1.8.3/AndroidManifest.xml:5:5-44
+MERGED from [androidx.fragment:fragment:1.8.3] /Users/neha.berwal/.gradle/caches/transforms-4/894ac3f698e9046891ef5f8db19c83c4/transformed/fragment-1.8.3/AndroidManifest.xml:5:5-44
+MERGED from [androidx.fragment:fragment-ktx:1.8.3] /Users/neha.berwal/.gradle/caches/transforms-4/e38cc04b24cac396027ee63edd1bfd1f/transformed/fragment-ktx-1.8.3/AndroidManifest.xml:5:5-44
+MERGED from [androidx.fragment:fragment-ktx:1.8.3] /Users/neha.berwal/.gradle/caches/transforms-4/e38cc04b24cac396027ee63edd1bfd1f/transformed/fragment-ktx-1.8.3/AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.components:components-resources-android:1.7.3] /Users/neha.berwal/.gradle/caches/transforms-4/6b3ba55b6b506e80a745c34d961e60bc/transformed/library-release/AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.compose.components:components-resources-android:1.7.3] /Users/neha.berwal/.gradle/caches/transforms-4/6b3ba55b6b506e80a745c34d961e60bc/transformed/library-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.animation:animation-core-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/38007c0bff699b03635b264ce293c661/transformed/animation-core-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.animation:animation-core-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/38007c0bff699b03635b264ce293c661/transformed/animation-core-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-ripple-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/a1528890d088f69ea8b1c1514e43ff55/transformed/material-ripple-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-ripple-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/a1528890d088f69ea8b1c1514e43ff55/transformed/material-ripple-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.animation:animation-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/b1d7e10799b373995936d6f1ca2b996a/transformed/animation-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.animation:animation-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/b1d7e10799b373995936d6f1ca2b996a/transformed/animation-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.foundation:foundation-layout-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/5b6db519d3065be166e97ac10a835f95/transformed/foundation-layout-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.foundation:foundation-layout-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/5b6db519d3065be166e97ac10a835f95/transformed/foundation-layout-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.foundation:foundation-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/a7a161b5598912beb8cbd95e2cd252c4/transformed/foundation-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.foundation:foundation-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/a7a161b5598912beb8cbd95e2cd252c4/transformed/foundation-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-unit-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/c70720a5440a9b7e83b4abad5b94f03c/transformed/ui-unit-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-unit-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/c70720a5440a9b7e83b4abad5b94f03c/transformed/ui-unit-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-geometry-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/dea1d6e630d663a834f16839e1e8fce0/transformed/ui-geometry-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-geometry-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/dea1d6e630d663a834f16839e1e8fce0/transformed/ui-geometry-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-graphics-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/71359a5c6c4bb56cc524e9c5eab0f68c/transformed/ui-graphics-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-graphics-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/71359a5c6c4bb56cc524e9c5eab0f68c/transformed/ui-graphics-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-util-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/2bc7f3f6d2a258acd883ecd11f06a5d9/transformed/ui-util-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-util-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/2bc7f3f6d2a258acd883ecd11f06a5d9/transformed/ui-util-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-text-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/9df008a39f5eafdd4ee219ac85c87914/transformed/ui-text-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-text-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/9df008a39f5eafdd4ee219ac85c87914/transformed/ui-text-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-icons-core-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/7e6e286df2fad68129e9142e7c0f7377/transformed/material-icons-core-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.material:material-icons-core-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/7e6e286df2fad68129e9142e7c0f7377/transformed/material-icons-core-release/AndroidManifest.xml:5:5-44
+MERGED from [com.google.accompanist:accompanist-drawablepainter:0.36.0] /Users/neha.berwal/.gradle/caches/transforms-4/3ebdc57d8ff1eb268bbf99b784b16c70/transformed/accompanist-drawablepainter-0.36.0/AndroidManifest.xml:21:5-44
+MERGED from [com.google.accompanist:accompanist-drawablepainter:0.36.0] /Users/neha.berwal/.gradle/caches/transforms-4/3ebdc57d8ff1eb268bbf99b784b16c70/transformed/accompanist-drawablepainter-0.36.0/AndroidManifest.xml:21:5-44
+MERGED from [androidx.emoji2:emoji2-views-helper:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/23fda12447320605552e1e3658dabcb9/transformed/emoji2-views-helper-1.3.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.emoji2:emoji2-views-helper:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/23fda12447320605552e1e3658dabcb9/transformed/emoji2-views-helper-1.3.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.emoji2:emoji2:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/927c6c1b97872350078f13d27ecbac35/transformed/emoji2-1.3.0/AndroidManifest.xml:21:5-44
+MERGED from [androidx.emoji2:emoji2:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/927c6c1b97872350078f13d27ecbac35/transformed/emoji2-1.3.0/AndroidManifest.xml:21:5-44
+MERGED from [io.github.jan-tennert.supabase:realtime-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/227151c7751d15d86055e5d282246104/transformed/realtime-kt-debug/AndroidManifest.xml:5:5-44
+MERGED from [io.github.jan-tennert.supabase:realtime-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/227151c7751d15d86055e5d282246104/transformed/realtime-kt-debug/AndroidManifest.xml:5:5-44
+MERGED from [io.github.jan-tennert.supabase:postgrest-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/7931df4215b015a3a2144155bdc41760/transformed/postgrest-kt-debug/AndroidManifest.xml:5:5-44
+MERGED from [io.github.jan-tennert.supabase:postgrest-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/7931df4215b015a3a2144155bdc41760/transformed/postgrest-kt-debug/AndroidManifest.xml:5:5-44
+MERGED from [io.github.jan-tennert.supabase:auth-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/db9d55d70758258ddc6e2d68a90f03fd/transformed/auth-kt-debug/AndroidManifest.xml:6:5-44
+MERGED from [io.github.jan-tennert.supabase:auth-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/db9d55d70758258ddc6e2d68a90f03fd/transformed/auth-kt-debug/AndroidManifest.xml:6:5-44
+MERGED from [io.github.jan-tennert.supabase:supabase-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/0394a553dc7dff189816ad267714bc65/transformed/supabase-kt-debug/AndroidManifest.xml:5:5-44
+MERGED from [io.github.jan-tennert.supabase:supabase-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/0394a553dc7dff189816ad267714bc65/transformed/supabase-kt-debug/AndroidManifest.xml:5:5-44
+MERGED from [androidx.loader:loader:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/aa0c579ce096934d1c97b88cbbd87cab/transformed/loader-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.loader:loader:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/aa0c579ce096934d1c97b88cbbd87cab/transformed/loader-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.savedstate:savedstate-ktx:1.2.1] /Users/neha.berwal/.gradle/caches/transforms-4/b5c0ad24e1b667b7471f47815a6bcc25/transformed/savedstate-ktx-1.2.1/AndroidManifest.xml:20:5-44
+MERGED from [androidx.savedstate:savedstate-ktx:1.2.1] /Users/neha.berwal/.gradle/caches/transforms-4/b5c0ad24e1b667b7471f47815a6bcc25/transformed/savedstate-ktx-1.2.1/AndroidManifest.xml:20:5-44
+MERGED from [androidx.savedstate:savedstate:1.2.1] /Users/neha.berwal/.gradle/caches/transforms-4/60ce65557941cbb15c62fbfca2d3e81f/transformed/savedstate-1.2.1/AndroidManifest.xml:20:5-44
+MERGED from [androidx.savedstate:savedstate:1.2.1] /Users/neha.berwal/.gradle/caches/transforms-4/60ce65557941cbb15c62fbfca2d3e81f/transformed/savedstate-1.2.1/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/73e251ba663df53d2006f198a3dbfe2a/transformed/lifecycle-viewmodel-2.8.7/AndroidManifest.xml:4:5-43
+MERGED from [androidx.lifecycle:lifecycle-viewmodel:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/73e251ba663df53d2006f198a3dbfe2a/transformed/lifecycle-viewmodel-2.8.7/AndroidManifest.xml:4:5-43
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/eb004ce9749f97732c0ca060b6bf6f77/transformed/lifecycle-viewmodel-release/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/eb004ce9749f97732c0ca060b6bf6f77/transformed/lifecycle-viewmodel-release/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime-ktx-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/0a42ca2498737438d54e1582d6f47c6a/transformed/lifecycle-runtime-ktx-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime-ktx-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/0a42ca2498737438d54e1582d6f47c6a/transformed/lifecycle-runtime-ktx-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime-compose-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/4358eb50b9999e8dbe7db9259226ac25/transformed/lifecycle-runtime-compose-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime-compose-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/4358eb50b9999e8dbe7db9259226ac25/transformed/lifecycle-runtime-compose-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/8908e9d834da03fd5c62217144934311/transformed/lifecycle-runtime-release/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-runtime-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/8908e9d834da03fd5c62217144934311/transformed/lifecycle-runtime-release/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/05c31c19700d6778150f5b9879e8e4fa/transformed/lifecycle-viewmodel-savedstate-2.8.7/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-savedstate:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/05c31c19700d6778150f5b9879e8e4fa/transformed/lifecycle-viewmodel-savedstate-2.8.7/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/8a142993e39b7f4275784ba04d8f41ca/transformed/lifecycle-viewmodel-ktx-2.8.7/AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/8a142993e39b7f4275784ba04d8f41ca/transformed/lifecycle-viewmodel-ktx-2.8.7/AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core-ktx:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/f4cd81b71f36b5887e141283525372dc/transformed/lifecycle-livedata-core-ktx-2.8.7/AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core-ktx:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/f4cd81b71f36b5887e141283525372dc/transformed/lifecycle-livedata-core-ktx-2.8.7/AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/a3c08ac7946a71ff7f8eadc1fdb19b34/transformed/lifecycle-livedata-core-2.8.7/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata-core:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/a3c08ac7946a71ff7f8eadc1fdb19b34/transformed/lifecycle-livedata-core-2.8.7/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/4a83757d053ca5b675119cfd55b6d35d/transformed/lifecycle-livedata-2.8.7/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-livedata:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/4a83757d053ca5b675119cfd55b6d35d/transformed/lifecycle-livedata-2.8.7/AndroidManifest.xml:20:5-44
+MERGED from [androidx.lifecycle:lifecycle-process:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/639000473908c5cd800002595ba77df4/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:21:5-44
+MERGED from [androidx.lifecycle:lifecycle-process:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/639000473908c5cd800002595ba77df4/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:21:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-compose-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/fd2cc92162e5120eee760ab677cc5507/transformed/lifecycle-viewmodel-compose-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.lifecycle:lifecycle-viewmodel-compose-android:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/fd2cc92162e5120eee760ab677cc5507/transformed/lifecycle-viewmodel-compose-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/46ec6bff296eecefa2a35d736a9b3f7f/transformed/ui-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.ui:ui-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/46ec6bff296eecefa2a35d736a9b3f7f/transformed/ui-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.activity:activity-ktx:1.9.3] /Users/neha.berwal/.gradle/caches/transforms-4/6825808404a99a8112be64bff786a4e8/transformed/activity-ktx-1.9.3/AndroidManifest.xml:5:5-44
+MERGED from [androidx.activity:activity-ktx:1.9.3] /Users/neha.berwal/.gradle/caches/transforms-4/6825808404a99a8112be64bff786a4e8/transformed/activity-ktx-1.9.3/AndroidManifest.xml:5:5-44
+MERGED from [androidx.activity:activity:1.9.3] /Users/neha.berwal/.gradle/caches/transforms-4/3add1cbff114b0ede048450f9519584c/transformed/activity-1.9.3/AndroidManifest.xml:20:5-44
+MERGED from [androidx.activity:activity:1.9.3] /Users/neha.berwal/.gradle/caches/transforms-4/3add1cbff114b0ede048450f9519584c/transformed/activity-1.9.3/AndroidManifest.xml:20:5-44
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/3ba069d739a9eb4d4e980a96ff1c81f6/transformed/drawerlayout-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.drawerlayout:drawerlayout:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/3ba069d739a9eb4d4e980a96ff1c81f6/transformed/drawerlayout-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.browser:browser:1.8.0] /Users/neha.berwal/.gradle/caches/transforms-4/9fd5b2dba5dc20e382a45abd6ece608e/transformed/browser-1.8.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.browser:browser:1.8.0] /Users/neha.berwal/.gradle/caches/transforms-4/9fd5b2dba5dc20e382a45abd6ece608e/transformed/browser-1.8.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] /Users/neha.berwal/.gradle/caches/transforms-4/40e3376064721c458c6fe1d6c8e75efd/transformed/vectordrawable-animated-1.1.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable-animated:1.1.0] /Users/neha.berwal/.gradle/caches/transforms-4/40e3376064721c458c6fe1d6c8e75efd/transformed/vectordrawable-animated-1.1.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] /Users/neha.berwal/.gradle/caches/transforms-4/e37f9a170fc0afc3b08defd6e3d10d27/transformed/vectordrawable-1.1.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.vectordrawable:vectordrawable:1.1.0] /Users/neha.berwal/.gradle/caches/transforms-4/e37f9a170fc0afc3b08defd6e3d10d27/transformed/vectordrawable-1.1.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.viewpager:viewpager:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/461aa269327cc732d5d096f96a061ccd/transformed/viewpager-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.viewpager:viewpager:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/461aa269327cc732d5d096f96a061ccd/transformed/viewpager-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.customview:customview:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/75cd7490dfd69222ff1344c2a8e0b3ef/transformed/customview-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.customview:customview:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/75cd7490dfd69222ff1344c2a8e0b3ef/transformed/customview-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.autofill:autofill:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/3cede240b261354c349202a54f9ace7c/transformed/autofill-1.0.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.autofill:autofill:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/3cede240b261354c349202a54f9ace7c/transformed/autofill-1.0.0/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.graphics:graphics-path:1.0.1] /Users/neha.berwal/.gradle/caches/transforms-4/c2e30ca7b274104746c3ebae72a6858e/transformed/graphics-path-1.0.1/AndroidManifest.xml:5:5-44
+MERGED from [androidx.graphics:graphics-path:1.0.1] /Users/neha.berwal/.gradle/caches/transforms-4/c2e30ca7b274104746c3ebae72a6858e/transformed/graphics-path-1.0.1/AndroidManifest.xml:5:5-44
+MERGED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:20:5-44
+MERGED from [org.jetbrains.androidx.core:core-bundle-android-debug:1.0.1] /Users/neha.berwal/.gradle/caches/transforms-4/c020940ceddb26e91d7a1035d06ec290/transformed/core-bundle-debug/AndroidManifest.xml:5:5-44
+MERGED from [org.jetbrains.androidx.core:core-bundle-android-debug:1.0.1] /Users/neha.berwal/.gradle/caches/transforms-4/c020940ceddb26e91d7a1035d06ec290/transformed/core-bundle-debug/AndroidManifest.xml:5:5-44
+MERGED from [androidx.customview:customview-poolingcontainer:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/73c68f9720b662d4ceed0616e4672d97/transformed/customview-poolingcontainer-1.0.0/AndroidManifest.xml:20:5-21:38
+MERGED from [androidx.customview:customview-poolingcontainer:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/73c68f9720b662d4ceed0616e4672d97/transformed/customview-poolingcontainer-1.0.0/AndroidManifest.xml:20:5-21:38
+MERGED from [androidx.core:core-ktx:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/26f511469096a4a80e026b2c24eae4cb/transformed/core-ktx-1.15.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.core:core-ktx:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/26f511469096a4a80e026b2c24eae4cb/transformed/core-ktx-1.15.0/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.runtime:runtime-saveable-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/570a0b900538ce9c85602023c8d7b2aa/transformed/runtime-saveable-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.runtime:runtime-saveable-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/570a0b900538ce9c85602023c8d7b2aa/transformed/runtime-saveable-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.runtime:runtime-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/c037dbb27727c69163c5c95f67a0dd42/transformed/runtime-release/AndroidManifest.xml:5:5-44
+MERGED from [androidx.compose.runtime:runtime-android:1.7.6] /Users/neha.berwal/.gradle/caches/transforms-4/c037dbb27727c69163c5c95f67a0dd42/transformed/runtime-release/AndroidManifest.xml:5:5-44
+MERGED from [com.russhwolf:multiplatform-settings-coroutines-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/b3844258a4037f6a728003d52ff2ed10/transformed/multiplatform-settings-coroutines-debug/AndroidManifest.xml:5:5-44
+MERGED from [com.russhwolf:multiplatform-settings-coroutines-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/b3844258a4037f6a728003d52ff2ed10/transformed/multiplatform-settings-coroutines-debug/AndroidManifest.xml:5:5-44
+MERGED from [androidx.annotation:annotation-experimental:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/2c0297f29541f0a7e2799538721e8030/transformed/annotation-experimental-1.4.1/AndroidManifest.xml:5:5-44
+MERGED from [androidx.annotation:annotation-experimental:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/2c0297f29541f0a7e2799538721e8030/transformed/annotation-experimental-1.4.1/AndroidManifest.xml:5:5-44
+MERGED from [com.russhwolf:multiplatform-settings-no-arg-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/8e162c82f0c2d3e0c115a086eaaa5281/transformed/multiplatform-settings-no-arg-debug/AndroidManifest.xml:21:5-44
+MERGED from [com.russhwolf:multiplatform-settings-no-arg-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/8e162c82f0c2d3e0c115a086eaaa5281/transformed/multiplatform-settings-no-arg-debug/AndroidManifest.xml:21:5-44
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/85052572db723120adef8d91df4cb94f/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.versionedparcelable:versionedparcelable:1.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/85052572db723120adef8d91df4cb94f/transformed/versionedparcelable-1.1.1/AndroidManifest.xml:20:5-22:41
+MERGED from [co.touchlab:kermit-android-debug:2.0.5] /Users/neha.berwal/.gradle/caches/transforms-4/6b84cf923c74604cf425cdbf0ba0d804/transformed/kermit-debug/AndroidManifest.xml:5:5-44
+MERGED from [co.touchlab:kermit-android-debug:2.0.5] /Users/neha.berwal/.gradle/caches/transforms-4/6b84cf923c74604cf425cdbf0ba0d804/transformed/kermit-debug/AndroidManifest.xml:5:5-44
+MERGED from [com.russhwolf:multiplatform-settings-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/55ecab4779823a691d1a1a05cc2c1bdc/transformed/multiplatform-settings-debug/AndroidManifest.xml:5:5-44
+MERGED from [com.russhwolf:multiplatform-settings-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/55ecab4779823a691d1a1a05cc2c1bdc/transformed/multiplatform-settings-debug/AndroidManifest.xml:5:5-44
+MERGED from [androidx.interpolator:interpolator:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/f00de68a44e6a05d2139edb1ff1d2471/transformed/interpolator-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.interpolator:interpolator:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/f00de68a44e6a05d2139edb1ff1d2471/transformed/interpolator-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:21:5-44
+MERGED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:21:5-44
+MERGED from [androidx.startup:startup-runtime:1.2.0] /Users/neha.berwal/.gradle/caches/transforms-4/144b0af0ec64f5a7320b24018a979dd6/transformed/startup-runtime-1.2.0/AndroidManifest.xml:21:5-44
+MERGED from [androidx.startup:startup-runtime:1.2.0] /Users/neha.berwal/.gradle/caches/transforms-4/144b0af0ec64f5a7320b24018a979dd6/transformed/startup-runtime-1.2.0/AndroidManifest.xml:21:5-44
+MERGED from [androidx.tracing:tracing:1.2.0] /Users/neha.berwal/.gradle/caches/transforms-4/9750551dba9945a48da80ef87963de84/transformed/tracing-1.2.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.tracing:tracing:1.2.0] /Users/neha.berwal/.gradle/caches/transforms-4/9750551dba9945a48da80ef87963de84/transformed/tracing-1.2.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/982889e93e1800a7f572c30ee5e9ddef/transformed/cursoradapter-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.cursoradapter:cursoradapter:1.0.0] /Users/neha.berwal/.gradle/caches/transforms-4/982889e93e1800a7f572c30ee5e9ddef/transformed/cursoradapter-1.0.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.arch.core:core-runtime:2.2.0] /Users/neha.berwal/.gradle/caches/transforms-4/19884a27111590406766e5a66b78ac39/transformed/core-runtime-2.2.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.arch.core:core-runtime:2.2.0] /Users/neha.berwal/.gradle/caches/transforms-4/19884a27111590406766e5a66b78ac39/transformed/core-runtime-2.2.0/AndroidManifest.xml:20:5-44
+MERGED from [androidx.exifinterface:exifinterface:1.3.7] /Users/neha.berwal/.gradle/caches/transforms-4/660478c1728d003d0fdf811ba5510b62/transformed/exifinterface-1.3.7/AndroidManifest.xml:20:5-22:41
+MERGED from [androidx.exifinterface:exifinterface:1.3.7] /Users/neha.berwal/.gradle/caches/transforms-4/660478c1728d003d0fdf811ba5510b62/transformed/exifinterface-1.3.7/AndroidManifest.xml:20:5-22:41
+MERGED from [co.touchlab:kermit-core-android-debug:2.0.5] /Users/neha.berwal/.gradle/caches/transforms-4/6d56445b2c5a95742d4371f3e24b43d1/transformed/kermit-core-debug/AndroidManifest.xml:5:5-44
+MERGED from [co.touchlab:kermit-core-android-debug:2.0.5] /Users/neha.berwal/.gradle/caches/transforms-4/6d56445b2c5a95742d4371f3e24b43d1/transformed/kermit-core-debug/AndroidManifest.xml:5:5-44
+MERGED from [com.caverock:androidsvg-aar:1.4] /Users/neha.berwal/.gradle/caches/transforms-4/a4d6f4b43a4a6c590f94bd4a5b32d0b2/transformed/androidsvg-aar-1.4/AndroidManifest.xml:7:5-9:41
+MERGED from [com.caverock:androidsvg-aar:1.4] /Users/neha.berwal/.gradle/caches/transforms-4/a4d6f4b43a4a6c590f94bd4a5b32d0b2/transformed/androidsvg-aar-1.4/AndroidManifest.xml:7:5-9:41
+	android:targetSdkVersion
+		INJECTED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from /Users/neha.berwal/AndroidStudioProjects/MindquestV2/composeApp/src/androidMain/AndroidManifest.xml
+provider#androidx.startup.InitializationProvider
+ADDED from [io.github.jan-tennert.supabase:compose-auth-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/10b8c0e4fd237c0a47a7a7b620ebbf54/transformed/compose-auth-debug/AndroidManifest.xml:9:9-17:20
+MERGED from [androidx.emoji2:emoji2:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/927c6c1b97872350078f13d27ecbac35/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.emoji2:emoji2:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/927c6c1b97872350078f13d27ecbac35/transformed/emoji2-1.3.0/AndroidManifest.xml:24:9-32:20
+MERGED from [io.github.jan-tennert.supabase:auth-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/db9d55d70758258ddc6e2d68a90f03fd/transformed/auth-kt-debug/AndroidManifest.xml:9:9-17:20
+MERGED from [io.github.jan-tennert.supabase:auth-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/db9d55d70758258ddc6e2d68a90f03fd/transformed/auth-kt-debug/AndroidManifest.xml:9:9-17:20
+MERGED from [androidx.lifecycle:lifecycle-process:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/639000473908c5cd800002595ba77df4/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.lifecycle:lifecycle-process:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/639000473908c5cd800002595ba77df4/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:24:9-32:20
+MERGED from [com.russhwolf:multiplatform-settings-no-arg-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/8e162c82f0c2d3e0c115a086eaaa5281/transformed/multiplatform-settings-no-arg-debug/AndroidManifest.xml:24:9-32:20
+MERGED from [com.russhwolf:multiplatform-settings-no-arg-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/8e162c82f0c2d3e0c115a086eaaa5281/transformed/multiplatform-settings-no-arg-debug/AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:24:9-32:20
+MERGED from [androidx.startup:startup-runtime:1.2.0] /Users/neha.berwal/.gradle/caches/transforms-4/144b0af0ec64f5a7320b24018a979dd6/transformed/startup-runtime-1.2.0/AndroidManifest.xml:24:9-28:34
+MERGED from [androidx.startup:startup-runtime:1.2.0] /Users/neha.berwal/.gradle/caches/transforms-4/144b0af0ec64f5a7320b24018a979dd6/transformed/startup-runtime-1.2.0/AndroidManifest.xml:24:9-28:34
+	tools:node
+		ADDED from [io.github.jan-tennert.supabase:compose-auth-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/10b8c0e4fd237c0a47a7a7b620ebbf54/transformed/compose-auth-debug/AndroidManifest.xml:13:13-31
+	android:authorities
+		ADDED from [io.github.jan-tennert.supabase:compose-auth-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/10b8c0e4fd237c0a47a7a7b620ebbf54/transformed/compose-auth-debug/AndroidManifest.xml:11:13-68
+	android:exported
+		ADDED from [io.github.jan-tennert.supabase:compose-auth-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/10b8c0e4fd237c0a47a7a7b620ebbf54/transformed/compose-auth-debug/AndroidManifest.xml:12:13-37
+	android:name
+		ADDED from [io.github.jan-tennert.supabase:compose-auth-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/10b8c0e4fd237c0a47a7a7b620ebbf54/transformed/compose-auth-debug/AndroidManifest.xml:10:13-67
+meta-data#io.github.jan.supabase.compose.auth.SupabaseInitializer
+ADDED from [io.github.jan-tennert.supabase:compose-auth-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/10b8c0e4fd237c0a47a7a7b620ebbf54/transformed/compose-auth-debug/AndroidManifest.xml:14:13-16:52
+	android:value
+		ADDED from [io.github.jan-tennert.supabase:compose-auth-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/10b8c0e4fd237c0a47a7a7b620ebbf54/transformed/compose-auth-debug/AndroidManifest.xml:16:17-49
+	android:name
+		ADDED from [io.github.jan-tennert.supabase:compose-auth-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/10b8c0e4fd237c0a47a7a7b620ebbf54/transformed/compose-auth-debug/AndroidManifest.xml:15:17-87
+service#androidx.credentials.playservices.CredentialProviderMetadataHolder
+ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:24:9-32:19
+	android:enabled
+		ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:26:13-35
+	android:exported
+		ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:27:13-37
+	tools:ignore
+		ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:28:13-60
+	android:name
+		ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:25:13-94
+meta-data#androidx.credentials.CREDENTIAL_PROVIDER_KEY
+ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:29:13-31:104
+	android:value
+		ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:31:17-101
+	android:name
+		ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:30:17-76
+activity#androidx.credentials.playservices.HiddenActivity
+ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:34:9-41:20
+	android:fitsSystemWindows
+		ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:39:13-45
+	android:enabled
+		ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:37:13-35
+	android:exported
+		ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:38:13-37
+	android:configChanges
+		ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:36:13-87
+	android:theme
+		ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:40:13-48
+	android:name
+		ADDED from [androidx.credentials:credentials-play-services-auth:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/32279424bc265dec108151848d36c5a6/transformed/credentials-play-services-auth-1.3.0/AndroidManifest.xml:35:13-76
+activity#com.google.android.gms.auth.api.signin.internal.SignInHubActivity
+ADDED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:23:9-27:75
+	android:excludeFromRecents
+		ADDED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:25:13-46
+	android:exported
+		ADDED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:26:13-37
+	android:theme
+		ADDED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:27:13-72
+	android:name
+		ADDED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:24:13-93
+service#com.google.android.gms.auth.api.signin.RevocationBoundService
+ADDED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:33:9-37:51
+	android:exported
+		ADDED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:35:13-36
+	android:visibleToInstantApps
+		ADDED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:37:13-48
+	android:permission
+		ADDED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:36:13-107
+	android:name
+		ADDED from [com.google.android.gms:play-services-auth:21.1.1] /Users/neha.berwal/.gradle/caches/transforms-4/be795bff605db12390708f29d5a414e4/transformed/play-services-auth-21.1.1/AndroidManifest.xml:34:13-89
+activity#com.google.android.gms.common.api.GoogleApiActivity
+ADDED from [com.google.android.gms:play-services-base:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/47bdf962a16e83708326eb91b741a2be/transformed/play-services-base-18.3.0/AndroidManifest.xml:20:9-22:45
+	android:exported
+		ADDED from [com.google.android.gms:play-services-base:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/47bdf962a16e83708326eb91b741a2be/transformed/play-services-base-18.3.0/AndroidManifest.xml:22:19-43
+	android:theme
+		ADDED from [com.google.android.gms:play-services-base:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/47bdf962a16e83708326eb91b741a2be/transformed/play-services-base-18.3.0/AndroidManifest.xml:21:19-78
+	android:name
+		ADDED from [com.google.android.gms:play-services-base:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/47bdf962a16e83708326eb91b741a2be/transformed/play-services-base-18.3.0/AndroidManifest.xml:20:19-85
+meta-data#com.google.android.gms.version
+ADDED from [com.google.android.gms:play-services-basement:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/aeec6605419521f7da95ef3febfeda5e/transformed/play-services-basement-18.3.0/AndroidManifest.xml:21:9-23:69
+	android:value
+		ADDED from [com.google.android.gms:play-services-basement:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/aeec6605419521f7da95ef3febfeda5e/transformed/play-services-basement-18.3.0/AndroidManifest.xml:23:13-66
+	android:name
+		ADDED from [com.google.android.gms:play-services-basement:18.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/aeec6605419521f7da95ef3febfeda5e/transformed/play-services-basement-18.3.0/AndroidManifest.xml:22:13-58
+provider#org.jetbrains.compose.resources.AndroidContextProvider
+ADDED from [org.jetbrains.compose.components:components-resources-android:1.7.3] /Users/neha.berwal/.gradle/caches/transforms-4/6b3ba55b6b506e80a745c34d961e60bc/transformed/library-release/AndroidManifest.xml:8:9-13:20
+	android:enabled
+		ADDED from [org.jetbrains.compose.components:components-resources-android:1.7.3] /Users/neha.berwal/.gradle/caches/transforms-4/6b3ba55b6b506e80a745c34d961e60bc/transformed/library-release/AndroidManifest.xml:11:13-35
+	android:authorities
+		ADDED from [org.jetbrains.compose.components:components-resources-android:1.7.3] /Users/neha.berwal/.gradle/caches/transforms-4/6b3ba55b6b506e80a745c34d961e60bc/transformed/library-release/AndroidManifest.xml:10:13-84
+	android:exported
+		ADDED from [org.jetbrains.compose.components:components-resources-android:1.7.3] /Users/neha.berwal/.gradle/caches/transforms-4/6b3ba55b6b506e80a745c34d961e60bc/transformed/library-release/AndroidManifest.xml:12:13-37
+	android:name
+		ADDED from [org.jetbrains.compose.components:components-resources-android:1.7.3] /Users/neha.berwal/.gradle/caches/transforms-4/6b3ba55b6b506e80a745c34d961e60bc/transformed/library-release/AndroidManifest.xml:9:13-82
+meta-data#androidx.emoji2.text.EmojiCompatInitializer
+ADDED from [androidx.emoji2:emoji2:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/927c6c1b97872350078f13d27ecbac35/transformed/emoji2-1.3.0/AndroidManifest.xml:29:13-31:52
+	android:value
+		ADDED from [androidx.emoji2:emoji2:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/927c6c1b97872350078f13d27ecbac35/transformed/emoji2-1.3.0/AndroidManifest.xml:31:17-49
+	android:name
+		ADDED from [androidx.emoji2:emoji2:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/927c6c1b97872350078f13d27ecbac35/transformed/emoji2-1.3.0/AndroidManifest.xml:30:17-75
+meta-data#io.github.jan.supabase.auth.SupabaseInitializer
+ADDED from [io.github.jan-tennert.supabase:auth-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/db9d55d70758258ddc6e2d68a90f03fd/transformed/auth-kt-debug/AndroidManifest.xml:14:13-16:52
+	android:value
+		ADDED from [io.github.jan-tennert.supabase:auth-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/db9d55d70758258ddc6e2d68a90f03fd/transformed/auth-kt-debug/AndroidManifest.xml:16:17-49
+	android:name
+		ADDED from [io.github.jan-tennert.supabase:auth-kt-android-debug:3.0.3] /Users/neha.berwal/.gradle/caches/transforms-4/db9d55d70758258ddc6e2d68a90f03fd/transformed/auth-kt-debug/AndroidManifest.xml:15:17-79
+meta-data#androidx.lifecycle.ProcessLifecycleInitializer
+ADDED from [androidx.lifecycle:lifecycle-process:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/639000473908c5cd800002595ba77df4/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:29:13-31:52
+	android:value
+		ADDED from [androidx.lifecycle:lifecycle-process:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/639000473908c5cd800002595ba77df4/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:31:17-49
+	android:name
+		ADDED from [androidx.lifecycle:lifecycle-process:2.8.7] /Users/neha.berwal/.gradle/caches/transforms-4/639000473908c5cd800002595ba77df4/transformed/lifecycle-process-2.8.7/AndroidManifest.xml:30:17-78
+permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:22:5-24:47
+	android:protectionLevel
+		ADDED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:24:9-44
+	android:name
+		ADDED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:23:9-81
+permission#com.android.mindquest.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:22:5-24:47
+	android:protectionLevel
+		ADDED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:24:9-44
+	android:name
+		ADDED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:23:9-81
+uses-permission#${applicationId}.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:26:5-97
+	android:name
+		ADDED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:26:22-94
+uses-permission#com.android.mindquest.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION
+ADDED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:26:5-97
+	android:name
+		ADDED from [androidx.core:core:1.15.0] /Users/neha.berwal/.gradle/caches/transforms-4/e6b193cd0ad621019624c125d9db6b89/transformed/core-1.15.0/AndroidManifest.xml:26:22-94
+meta-data#com.russhwolf.settings.SettingsInitializer
+ADDED from [com.russhwolf:multiplatform-settings-no-arg-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/8e162c82f0c2d3e0c115a086eaaa5281/transformed/multiplatform-settings-no-arg-debug/AndroidManifest.xml:29:13-31:52
+	android:value
+		ADDED from [com.russhwolf:multiplatform-settings-no-arg-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/8e162c82f0c2d3e0c115a086eaaa5281/transformed/multiplatform-settings-no-arg-debug/AndroidManifest.xml:31:17-49
+	android:name
+		ADDED from [com.russhwolf:multiplatform-settings-no-arg-android-debug:1.3.0] /Users/neha.berwal/.gradle/caches/transforms-4/8e162c82f0c2d3e0c115a086eaaa5281/transformed/multiplatform-settings-no-arg-debug/AndroidManifest.xml:30:17-74
+meta-data#androidx.profileinstaller.ProfileInstallerInitializer
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:29:13-31:52
+	android:value
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:31:17-49
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:30:17-85
+receiver#androidx.profileinstaller.ProfileInstallReceiver
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:34:9-52:20
+	android:enabled
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:37:13-35
+	android:exported
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:38:13-36
+	android:permission
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:39:13-57
+	android:directBootAware
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:36:13-44
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:35:13-76
+intent-filter#action:name:androidx.profileinstaller.action.INSTALL_PROFILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:40:13-42:29
+action#androidx.profileinstaller.action.INSTALL_PROFILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:41:17-91
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:41:25-88
+intent-filter#action:name:androidx.profileinstaller.action.SKIP_FILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:43:13-45:29
+action#androidx.profileinstaller.action.SKIP_FILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:44:17-85
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:44:25-82
+intent-filter#action:name:androidx.profileinstaller.action.SAVE_PROFILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:46:13-48:29
+action#androidx.profileinstaller.action.SAVE_PROFILE
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:47:17-88
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:47:25-85
+intent-filter#action:name:androidx.profileinstaller.action.BENCHMARK_OPERATION
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:49:13-51:29
+action#androidx.profileinstaller.action.BENCHMARK_OPERATION
+ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:50:17-95
+	android:name
+		ADDED from [androidx.profileinstaller:profileinstaller:1.4.1] /Users/neha.berwal/.gradle/caches/transforms-4/8a49142de6fae7658f22a474d44987b7/transformed/profileinstaller-1.4.1/AndroidManifest.xml:50:25-92
