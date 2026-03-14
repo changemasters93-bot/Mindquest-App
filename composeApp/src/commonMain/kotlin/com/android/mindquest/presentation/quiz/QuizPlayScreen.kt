@@ -2,6 +2,7 @@ package com.android.mindquest.presentation.quiz
 
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -67,10 +68,16 @@ import com.android.mindquest.domain.model.MatchPair
 import com.android.mindquest.domain.model.Question
 import com.android.mindquest.domain.model.QuestionOption
 import com.android.mindquest.domain.model.QuestionType
+import com.android.mindquest.domain.model.QuizBehavior
 import com.android.mindquest.presentation.components.MindquestProgressBar
 import com.android.mindquest.presentation.components.PrimaryButton
 import com.android.mindquest.presentation.quiz.visual.QuizVisualTokenMapper
+import com.android.mindquest.presentation.quiz.visual.VisualTokenFromText
 import com.android.mindquest.presentation.quiz.visual.VisualTokenView
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.jsonArray
+import kotlinx.serialization.json.jsonPrimitive
 
 @Composable
 fun QuizPlayScreen(
@@ -99,21 +106,76 @@ fun QuizPlayScreen(
         }
     }
 
+    // Show loading spinner while quiz is being fetched from API (daily challenge / IQ test)
+    if (quizState.totalQuestions == 0 && currentQuestion == null) {
+        when (resultState) {
+            is com.android.mindquest.core.util.UiState.Error -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().background(MindquestColors.Background),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(text = "\u274C", fontSize = 48.sp)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = (resultState as com.android.mindquest.core.util.UiState.Error).message,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MindquestColors.TextPrimary,
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        PrimaryButton(text = "Go Back", onClick = onClose)
+                    }
+                }
+            }
+            else -> {
+                Box(
+                    modifier = Modifier.fillMaxSize().background(MindquestColors.Background),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        CircularProgressIndicator(color = accentColor)
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Loading quiz...",
+                            fontSize = 16.sp,
+                            color = MindquestColors.TextSecondary,
+                        )
+                    }
+                }
+            }
+        }
+        return
+    }
+
     // Show results screen when quiz is submitted
     val quizFinished = quizState.currentIndex >= quizState.totalQuestions && quizState.totalQuestions > 0
     if (quizFinished) {
         when (val result = resultState) {
             is com.android.mindquest.core.util.UiState.Success -> {
-                QuizResultsScreen(
-                    result = result.data,
-                    answers = viewModel.answers,
-                    accentColor = accentColor,
-                    onFinish = onFinish,
-                    onReview = if (config.showReviewButton) onReview else ({}),
-                    onRetry = if (config.showRetryButton) onRetry else ({}),
-                    showReview = config.showReviewButton,
-                    showRetry = config.showRetryButton,
-                )
+                if (config.behavior == QuizBehavior.IQ_TEST) {
+                    val iqScore = result.data.iqScore
+                        ?: (55 + (result.data.score * 105.0 / result.data.totalQuestions.coerceAtLeast(1)).toInt())
+                    IqResultContent(
+                        iqScore = iqScore,
+                        score = result.data.score,
+                        totalQuestions = result.data.totalQuestions,
+                        xpEarned = result.data.xpEarned,
+                        onExit = onFinish,
+                    )
+                } else {
+                    QuizResultsScreen(
+                        result = result.data,
+                        answers = viewModel.answers,
+                        accentColor = accentColor,
+                        onFinish = onFinish,
+                        onReview = if (config.showReviewButton) onReview else ({}),
+                        onRetry = if (config.showRetryButton) onRetry else ({}),
+                        showReview = config.showReviewButton,
+                        showRetry = config.showRetryButton,
+                    )
+                }
             }
             is com.android.mindquest.core.util.UiState.Loading -> {
                 Box(
@@ -132,22 +194,40 @@ fun QuizPlayScreen(
                 }
             }
             else -> {
-                // Error state - allow going back
+                // Error state — offer retry before falling back to close
                 Box(
                     modifier = Modifier.fillMaxSize().background(MindquestColors.Background),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(horizontal = 32.dp),
+                    ) {
                         Text(text = "\u274C", fontSize = 48.sp)
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Something went wrong",
+                            text = "Submission failed",
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = MindquestColors.TextPrimary,
                         )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Your answers are saved. Tap retry to submit again.",
+                            fontSize = 14.sp,
+                            color = MindquestColors.TextSecondary,
+                            textAlign = TextAlign.Center,
+                        )
                         Spacer(modifier = Modifier.height(24.dp))
-                        PrimaryButton(text = "Go Back", onClick = onFinish)
+                        PrimaryButton(
+                            text = "Retry",
+                            onClick = { viewModel.retrySubmission() },
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        PrimaryButton(
+                            text = "Go Back",
+                            onClick = onClose,
+                        )
                     }
                 }
             }
@@ -193,7 +273,9 @@ fun QuizPlayScreen(
                         prompt = "",
                     )
                     QuestionType.MATRIX, QuestionType.TABLE_DATA,
-                    QuestionType.MEMORY, QuestionType.GRID_PATTERN -> QuestionCard(
+                    QuestionType.MEMORY, QuestionType.GRID_PATTERN,
+                    QuestionType.GRID_CELL_SELECT, QuestionType.GRID_PATTERN_BOOLEAN,
+                    QuestionType.SEQUENCE_TAP -> QuestionCard(
                         title = currentQuestion.title,
                         prompt = "",
                     )
@@ -232,18 +314,35 @@ fun QuizPlayScreen(
                         orderedIds = quizState.orderedOptionIds,
                         isConfirmed = quizState.isConfirmed,
                         accentColor = accentColor,
+                        showFeedback = showFeedback,
                         onMoveItem = { from, to -> viewModel.moveOrderItem(from, to) },
                     )
 
-                    QuestionType.MATCH -> MatchSection(
-                        matchPairs = currentQuestion.matchPairs ?: emptyList(),
-                        matchedPairs = quizState.matchedPairs,
-                        selectedLeft = quizState.selectedMatchLeft,
-                        isConfirmed = quizState.isConfirmed,
-                        accentColor = accentColor,
-                        onSelectLeft = { viewModel.selectMatchLeft(it) },
-                        onSelectRight = { viewModel.selectMatchRight(it) },
-                    )
+                    QuestionType.MATCH -> {
+                        val matchPairs = currentQuestion.matchPairs
+                        if (!matchPairs.isNullOrEmpty()) {
+                            MatchSection(
+                                matchPairs = matchPairs,
+                                matchedPairs = quizState.matchedPairs,
+                                selectedLeft = quizState.selectedMatchLeft,
+                                isConfirmed = quizState.isConfirmed,
+                                accentColor = accentColor,
+                                showFeedback = showFeedback,
+                                onSelectLeft = { viewModel.selectMatchLeft(it) },
+                                onSelectRight = { viewModel.selectMatchRight(it) },
+                            )
+                        } else {
+                            // Fallback: render as MCQ when match_pairs data is missing
+                            McqOptionsGrid(
+                                options = currentQuestion.options,
+                                selectedOptionId = quizState.selectedOptionId,
+                                isConfirmed = quizState.isConfirmed,
+                                showFeedback = showFeedback,
+                                accentColor = accentColor,
+                                onSelect = { viewModel.selectOption(it) },
+                            )
+                        }
+                    }
 
                     QuestionType.SELECT_WORD -> SelectWordSection(
                         options = currentQuestion.options,
@@ -308,6 +407,33 @@ fun QuizPlayScreen(
                         onSelect = { viewModel.selectOption(it) },
                     )
 
+                    QuestionType.GRID_CELL_SELECT -> GridCellSelectSection(
+                        question = currentQuestion,
+                        selectedOptionId = quizState.selectedOptionId,
+                        isConfirmed = quizState.isConfirmed,
+                        showFeedback = showFeedback,
+                        accentColor = accentColor,
+                        onSelect = { viewModel.selectOption(it) },
+                    )
+
+                    QuestionType.GRID_PATTERN_BOOLEAN -> GridPatternBooleanSection(
+                        question = currentQuestion,
+                        selectedOptionId = quizState.selectedOptionId,
+                        isConfirmed = quizState.isConfirmed,
+                        showFeedback = showFeedback,
+                        accentColor = accentColor,
+                        onSelect = { viewModel.selectOption(it) },
+                    )
+
+                    QuestionType.SEQUENCE_TAP -> SequenceTapSection(
+                        question = currentQuestion,
+                        sequenceTapIds = quizState.sequenceTapIds,
+                        isConfirmed = quizState.isConfirmed,
+                        showFeedback = showFeedback,
+                        accentColor = accentColor,
+                        onTap = { viewModel.tapSequenceItem(it) },
+                    )
+
                     else -> McqOptionsGrid(
                         options = currentQuestion.options,
                         selectedOptionId = quizState.selectedOptionId,
@@ -357,6 +483,25 @@ fun QuizPlayScreen(
                 )
             }
             // If autoAdvanceDelayMs or feedbackFlashDurationMs != null, no button shown (auto-advances)
+        } else {
+            // Loading indicator while quiz data is being fetched from API
+            // (daily challenges, IQ tests — quiz loads lazily)
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    CircularProgressIndicator(color = accentColor)
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "Loading quiz...",
+                        fontSize = 16.sp,
+                        color = MindquestColors.TextSecondary,
+                    )
+                }
+            }
         }
     }
 }
@@ -960,13 +1105,13 @@ private fun GridOptionCard(
                 when (optionState) {
                     OptionState.CORRECT -> Icon(
                         imageVector = Icons.Default.Check,
-                        contentDescription = null,
+                        contentDescription = "Correct",
                         tint = Color.White,
                         modifier = Modifier.size(16.dp),
                     )
                     OptionState.INCORRECT -> Icon(
                         imageVector = Icons.Default.Close,
-                        contentDescription = null,
+                        contentDescription = "Incorrect",
                         tint = Color.White,
                         modifier = Modifier.size(16.dp),
                     )
@@ -1140,6 +1285,7 @@ private fun OrderingSection(
     orderedIds: List<String>,
     isConfirmed: Boolean,
     accentColor: Color,
+    showFeedback: Boolean = true,
     onMoveItem: (Int, Int) -> Unit,
 ) {
     val optionsMap = options.associateBy { it.id }
@@ -1185,22 +1331,25 @@ private fun OrderingSection(
             }
 
             val bgColor = when {
-                isConfirmed && isCorrectPosition -> MindquestColors.Success.copy(alpha = 0.1f)
-                isConfirmed && !isCorrectPosition -> MindquestColors.Error.copy(alpha = 0.1f)
+                isConfirmed && showFeedback && isCorrectPosition -> MindquestColors.Success.copy(alpha = 0.1f)
+                isConfirmed && showFeedback && !isCorrectPosition -> MindquestColors.Error.copy(alpha = 0.1f)
+                isConfirmed && !showFeedback -> accentColor.copy(alpha = 0.06f)
                 isDragging -> accentColor.copy(alpha = 0.12f)
                 else -> MindquestColors.Surface
             }
 
             val borderColor = when {
-                isConfirmed && isCorrectPosition -> MindquestColors.Success
-                isConfirmed && !isCorrectPosition -> MindquestColors.Error
+                isConfirmed && showFeedback && isCorrectPosition -> MindquestColors.Success
+                isConfirmed && showFeedback && !isCorrectPosition -> MindquestColors.Error
+                isConfirmed && !showFeedback -> accentColor.copy(alpha = 0.4f)
                 isDragging -> accentColor
                 else -> MindquestColors.SurfaceVariant
             }
 
             val badgeColor = when {
-                isConfirmed && isCorrectPosition -> MindquestColors.Success
-                isConfirmed -> MindquestColors.Error
+                isConfirmed && showFeedback && isCorrectPosition -> MindquestColors.Success
+                isConfirmed && showFeedback -> MindquestColors.Error
+                isConfirmed && !showFeedback -> accentColor.copy(alpha = 0.5f)
                 isDragging -> accentColor
                 else -> MindquestColors.SurfaceVariant
             }
@@ -1287,17 +1436,17 @@ private fun OrderingSection(
                             .background(badgeColor),
                         contentAlignment = Alignment.Center,
                     ) {
-                        if (isConfirmed) {
+                        if (isConfirmed && showFeedback) {
                             Icon(
                                 imageVector = if (isCorrectPosition) Icons.Default.Check else Icons.Default.Close,
-                                contentDescription = null,
+                                contentDescription = if (isCorrectPosition) "Correct position" else "Incorrect position",
                                 tint = Color.White,
                                 modifier = Modifier.size(16.dp),
                             )
                         } else {
                             Text(
                                 text = "${index + 1}",
-                                color = if (isDragging) Color.White else MindquestColors.TextSecondary,
+                                color = if (isDragging || (isConfirmed && !showFeedback)) Color.White else MindquestColors.TextSecondary,
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Bold,
                             )
@@ -1348,6 +1497,7 @@ private fun MatchSection(
     selectedLeft: String?,
     isConfirmed: Boolean,
     accentColor: Color,
+    showFeedback: Boolean = true,
     onSelectLeft: (String) -> Unit,
     onSelectRight: (String) -> Unit,
 ) {
@@ -1386,12 +1536,13 @@ private fun MatchSection(
                 val isSelectedLeft = selectedLeft == pair.id
                 val isMatched = matchedPairs.containsKey(pair.id)
                 val matchColor = pairColorMap[pair.id]
-                val isCorrectMatch = isConfirmed && matchedPairs[pair.id] == pair.rightText
-                val isWrongMatch = isConfirmed && isMatched && matchedPairs[pair.id] != pair.rightText
+                val isCorrectMatch = isConfirmed && showFeedback && matchedPairs[pair.id] == pair.rightText
+                val isWrongMatch = isConfirmed && showFeedback && isMatched && matchedPairs[pair.id] != pair.rightText
 
                 val bgColor = when {
                     isCorrectMatch -> MindquestColors.Success.copy(alpha = 0.12f)
                     isWrongMatch -> MindquestColors.Error.copy(alpha = 0.12f)
+                    isConfirmed && !showFeedback && isMatched -> accentColor.copy(alpha = 0.06f)
                     isSelectedLeft -> accentColor.copy(alpha = 0.15f)
                     isMatched && matchColor != null -> matchColor.copy(alpha = 0.08f)
                     else -> MindquestColors.Surface
@@ -1400,6 +1551,7 @@ private fun MatchSection(
                 val borderClr = when {
                     isCorrectMatch -> MindquestColors.Success
                     isWrongMatch -> MindquestColors.Error
+                    isConfirmed && !showFeedback && isMatched -> accentColor.copy(alpha = 0.4f)
                     isSelectedLeft -> accentColor
                     isMatched && matchColor != null -> matchColor.copy(alpha = 0.5f)
                     else -> MindquestColors.SurfaceVariant
@@ -1450,10 +1602,10 @@ private fun MatchSection(
                             modifier = Modifier.weight(1f),
                         )
 
-                        if (isConfirmed) {
+                        if (isConfirmed && showFeedback) {
                             Icon(
                                 imageVector = if (isCorrectMatch) Icons.Default.Check else Icons.Default.Close,
-                                contentDescription = null,
+                                contentDescription = if (isCorrectMatch) "Correct match" else "Incorrect match",
                                 tint = if (isCorrectMatch) MindquestColors.Success else MindquestColors.Error,
                                 modifier = Modifier.size(16.dp),
                             )
@@ -1628,10 +1780,37 @@ private fun StatementReasonSection(
     accentColor: Color,
     onSelect: (String) -> Unit,
 ) {
-    // Parse "Statement: ...\nReason: ..." from title
-    val parts = question.title.split("\n")
-    val statementText = parts.getOrNull(0)?.removePrefix("Statement:")?.trim() ?: question.title
-    val reasonText = parts.getOrNull(1)?.removePrefix("Reason:")?.trim() ?: ""
+    // Read statement & reason from metadata (JSONB) first, fallback to title parsing
+    val (statementText, reasonText) = remember(question.id) {
+        val meta = question.metadata
+        val metaStatement = (meta?.get("statement") as? JsonElement)
+            ?.jsonPrimitive?.content
+        val metaReason = (meta?.get("reason") as? JsonElement)
+            ?.jsonPrimitive?.content
+
+        if (metaStatement != null && metaReason != null) {
+            metaStatement to metaReason
+        } else {
+            // Fallback: parse "Statement: ...\nReason: ..." or ". Reason:" from title
+            val title = question.title
+            val nlParts = title.split("\n")
+            if (nlParts.size >= 2) {
+                val s = nlParts[0].removePrefix("Statement:").trim()
+                val r = nlParts[1].removePrefix("Reason:").trim()
+                s to r
+            } else {
+                // Try splitting on ". Reason:" for single-line format
+                val idx = title.indexOf(". Reason:")
+                if (idx > 0) {
+                    val s = title.substring(0, idx).removePrefix("Statement:").trim()
+                    val r = title.substring(idx + ". Reason:".length).trim()
+                    s to r
+                } else {
+                    title.removePrefix("Statement:").trim() to ""
+                }
+            }
+        }
+    }
 
     // Statement card
     Card(
@@ -1726,8 +1905,8 @@ private fun StatementReasonSection(
                     contentAlignment = Alignment.Center,
                 ) {
                     when (state) {
-                        OptionState.CORRECT -> Icon(Icons.Default.Check, null, tint = Color.White, modifier = Modifier.size(14.dp))
-                        OptionState.INCORRECT -> Icon(Icons.Default.Close, null, tint = Color.White, modifier = Modifier.size(14.dp))
+                        OptionState.CORRECT -> Icon(Icons.Default.Check, "Correct", tint = Color.White, modifier = Modifier.size(14.dp))
+                        OptionState.INCORRECT -> Icon(Icons.Default.Close, "Incorrect", tint = Color.White, modifier = Modifier.size(14.dp))
                         else -> Text(
                             option.visualLabel ?: "",
                             fontSize = 11.sp,
@@ -1822,7 +2001,7 @@ private fun VisualChoiceGrid(
                             Spacer(modifier = Modifier.height(6.dp))
                             Icon(
                                 imageVector = if (state == OptionState.CORRECT) Icons.Default.Check else Icons.Default.Close,
-                                contentDescription = null,
+                                contentDescription = if (state == OptionState.CORRECT) "Correct" else "Incorrect",
                                 tint = if (state == OptionState.CORRECT) MindquestColors.Success else MindquestColors.Error,
                                 modifier = Modifier.size(20.dp),
                             )
@@ -1847,8 +2026,22 @@ private fun MatrixSection(
     accentColor: Color,
     onSelect: (String) -> Unit,
 ) {
-    val prompt = question.prompt ?: ""
-    val matrixRows = prompt.lines().filter { it.isNotBlank() }
+    // Parse matrix rows from promptConfig["rows"] (JSONB array of arrays)
+    val matrixRows: List<List<String>> = remember(question.id) {
+        val rowsElement = question.promptConfig?.get("rows")
+        if (rowsElement is JsonArray) {
+            rowsElement.mapNotNull { rowEl ->
+                (rowEl as? JsonArray)?.map { it.jsonPrimitive.content }
+            }
+        } else {
+            // Legacy fallback: parse from prompt text
+            val prompt = question.prompt ?: ""
+            val lines = prompt.lines().filter { it.isNotBlank() }
+            if (lines.any { it.contains("?") || it.trim().split("\\s+".toRegex()).size > 1 }) {
+                lines.map { it.trim().split("\\s+".toRegex()) }
+            } else emptyList()
+        }
+    }
 
     if (matrixRows.isNotEmpty()) {
         Card(
@@ -1866,8 +2059,7 @@ private fun MatrixSection(
                 Text("\uD83D\uDD22 Number Matrix", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = accentColor)
                 Spacer(modifier = Modifier.height(12.dp))
 
-                matrixRows.forEach { row ->
-                    val cells = row.trim().split("\\s+".toRegex())
+                matrixRows.forEach { cells ->
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceEvenly,
@@ -1903,6 +2095,9 @@ private fun MatrixSection(
         }
 
         Spacer(modifier = Modifier.height(16.dp))
+    } else {
+        FallbackPromptCard(title = question.prompt ?: question.title, emoji = "\uD83D\uDD22", label = "Number Matrix", accentColor = accentColor)
+        Spacer(modifier = Modifier.height(16.dp))
     }
 
     McqOptionsGrid(
@@ -1917,7 +2112,6 @@ private fun MatrixSection(
 
 // ── GRID PATTERN ────────────────────────────────────────────────────────
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun GridPatternSection(
     question: Question,
@@ -1927,10 +2121,22 @@ private fun GridPatternSection(
     accentColor: Color,
     onSelect: (String) -> Unit,
 ) {
-    val prompt = question.prompt ?: ""
-    val patternItems = prompt.split("\\s+".toRegex()).filter { it.isNotBlank() }
+    // Parse grid from promptConfig["grid"] (JSONB array of arrays)
+    val gridRows: List<List<String>> = remember(question.id) {
+        val gridElement = question.promptConfig?.get("grid")
+        if (gridElement is JsonArray) {
+            gridElement.mapNotNull { rowEl ->
+                (rowEl as? JsonArray)?.map { it.jsonPrimitive.content }
+            }
+        } else {
+            // Legacy fallback: parse from prompt text
+            val prompt = question.prompt ?: ""
+            val items = prompt.split("\\s+".toRegex()).filter { it.isNotBlank() }
+            if (items.any { it == "?" }) listOf(items) else emptyList()
+        }
+    }
 
-    if (patternItems.isNotEmpty()) {
+    if (gridRows.isNotEmpty()) {
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -1950,39 +2156,45 @@ private fun GridPatternSection(
                     color = Color(0xFF7C3AED),
                 )
                 Spacer(modifier = Modifier.height(12.dp))
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    patternItems.forEach { item ->
-                        val isMissing = item == "?"
-                        Box(
-                            modifier = Modifier
-                                .size(if (isMissing) 50.dp else 46.dp)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(
-                                    if (isMissing) accentColor.copy(alpha = 0.12f)
-                                    else Color(0xFFEDE9FE),
+
+                gridRows.forEach { cells ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                    ) {
+                        cells.forEach { item ->
+                            val isMissing = item == "?"
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isMissing) 50.dp else 46.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(
+                                        if (isMissing) accentColor.copy(alpha = 0.12f)
+                                        else Color(0xFFEDE9FE),
+                                    )
+                                    .then(
+                                        if (isMissing) Modifier.border(2.dp, accentColor, RoundedCornerShape(10.dp))
+                                        else Modifier,
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = item,
+                                    fontSize = if (isMissing) 22.sp else 20.sp,
+                                    fontWeight = if (isMissing) FontWeight.ExtraBold else FontWeight.Medium,
+                                    color = if (isMissing) accentColor else MindquestColors.TextPrimary,
                                 )
-                                .then(
-                                    if (isMissing) Modifier.border(2.dp, accentColor, RoundedCornerShape(10.dp))
-                                    else Modifier,
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = item,
-                                fontSize = if (isMissing) 22.sp else 20.sp,
-                                fontWeight = if (isMissing) FontWeight.ExtraBold else FontWeight.Medium,
-                                color = if (isMissing) accentColor else MindquestColors.TextPrimary,
-                            )
+                            }
                         }
                     }
+                    Spacer(modifier = Modifier.height(6.dp))
                 }
             }
         }
 
+        Spacer(modifier = Modifier.height(16.dp))
+    } else {
+        FallbackPromptCard(title = question.prompt ?: question.title, emoji = "\uD83E\uDDE9", label = "Pattern", accentColor = accentColor)
         Spacer(modifier = Modifier.height(16.dp))
     }
 
@@ -2007,10 +2219,33 @@ private fun TableDataSection(
     accentColor: Color,
     onSelect: (String) -> Unit,
 ) {
-    val prompt = question.prompt ?: ""
-    val tableRows = prompt.lines().filter { it.isNotBlank() }
+    // Parse table from promptConfig: "headers" and "rows"
+    val tableData: Pair<List<String>, List<List<String>>>? = remember(question.id) {
+        val cfg = question.promptConfig
+        val headersEl = cfg?.get("headers")
+        val rowsEl = cfg?.get("rows")
+        if (headersEl is JsonArray && rowsEl is JsonArray) {
+            val headers = headersEl.map { it.jsonPrimitive.content }
+            val rows = rowsEl.mapNotNull { rowEl ->
+                (rowEl as? JsonArray)?.map { it.jsonPrimitive.content }
+            }
+            headers to rows
+        } else {
+            // Legacy fallback: parse from prompt as pipe-delimited
+            val prompt = question.prompt ?: ""
+            val lines = prompt.lines().filter { it.isNotBlank() }
+            if (lines.any { "|" in it }) {
+                val allRows = lines.map { row ->
+                    row.split("|").map { it.trim() }.filter { it.isNotBlank() }
+                }
+                if (allRows.size >= 2) allRows.first() to allRows.drop(1) else null
+            } else null
+        }
+    }
 
-    if (tableRows.isNotEmpty()) {
+    if (tableData != null) {
+        val (headers, rows) = tableData
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -2027,35 +2262,48 @@ private fun TableDataSection(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
 
-                tableRows.forEachIndexed { index, row ->
-                    val cells = row.split("|").map { it.trim() }.filter { it.isNotBlank() }
-                    val isHeader = index == 0
+                // Header row
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
+                        .background(accentColor.copy(alpha = 0.1f))
+                        .padding(vertical = 10.dp, horizontal = 8.dp),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    headers.forEach { cell ->
+                        Text(
+                            text = cell,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = accentColor,
+                            modifier = Modifier.weight(1f),
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
 
+                // Data rows
+                rows.forEachIndexed { index, cells ->
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .then(
-                                if (isHeader) Modifier
-                                    .clip(RoundedCornerShape(topStart = 8.dp, topEnd = 8.dp))
-                                    .background(accentColor.copy(alpha = 0.1f))
-                                else Modifier,
-                            )
                             .padding(vertical = 10.dp, horizontal = 8.dp),
                         horizontalArrangement = Arrangement.SpaceEvenly,
                     ) {
                         cells.forEach { cell ->
                             Text(
                                 text = cell,
-                                fontSize = if (isHeader) 12.sp else 14.sp,
-                                fontWeight = if (isHeader) FontWeight.Bold else FontWeight.Normal,
-                                color = if (isHeader) accentColor else MindquestColors.TextPrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Normal,
+                                color = MindquestColors.TextPrimary,
                                 modifier = Modifier.weight(1f),
                                 textAlign = TextAlign.Center,
                             )
                         }
                     }
 
-                    if (index < tableRows.lastIndex) {
+                    if (index < rows.lastIndex) {
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -2067,6 +2315,23 @@ private fun TableDataSection(
             }
         }
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Show the actual question from prompt (e.g., "Who scored the highest in Math?")
+        val promptQuestion = question.prompt?.takeIf { it.isNotBlank() }
+        if (promptQuestion != null) {
+            Text(
+                text = promptQuestion,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MindquestColors.TextPrimary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+    } else {
+        FallbackPromptCard(title = question.prompt ?: question.title, emoji = "\uD83D\uDCCA", label = "Data Table", accentColor = accentColor)
         Spacer(modifier = Modifier.height(16.dp))
     }
 
@@ -2092,60 +2357,215 @@ private fun MemorySection(
     accentColor: Color,
     onSelect: (String) -> Unit,
 ) {
-    val prompt = question.prompt ?: ""
-    val memoryItems = prompt.split("\\s+".toRegex()).filter { it.isNotBlank() }
+    val memGreen = Color(0xFF10B981)
 
-    if (memoryItems.isNotEmpty()) {
-        Card(
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(16.dp),
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
-            border = BorderStroke(1.dp, Color(0xFF10B981).copy(alpha = 0.3f)),
+    // Each card: id, display text (visualLabel or label), and groupKey (label) for pair matching
+    data class MemCard(val id: String, val display: String, val groupKey: String)
+
+    val shuffledCards = remember(question.id) {
+        question.options.map { opt ->
+            MemCard(
+                id = opt.id,
+                display = opt.visualLabel?.takeIf { it.isNotBlank() } ?: opt.label,
+                groupKey = opt.label,
+            )
+        }.shuffled()
+    }
+
+    // Local state for the card-flip matching game
+    var revealedIds by remember { mutableStateOf(setOf<String>()) }
+    var matchedIds by remember { mutableStateOf(setOf<String>()) }
+    var firstPick by remember { mutableStateOf<String?>(null) }
+    var lockInput by remember { mutableStateOf(false) }
+    val allMatched = matchedIds.size == shuffledCards.size && shuffledCards.isNotEmpty()
+
+    // Auto-select first option when all pairs found (enables Confirm button)
+    LaunchedEffect(allMatched) {
+        if (allMatched && selectedOptionId == null) {
+            onSelect(question.options.first().id)
+        }
+    }
+
+    // Handle mismatch — hide after brief delay
+    LaunchedEffect(firstPick, revealedIds) {
+        if (lockInput && firstPick != null) {
+            kotlinx.coroutines.delay(600)
+            val pick1 = firstPick ?: return@LaunchedEffect
+            // Remove non-matched revealed cards
+            revealedIds = matchedIds
+            firstPick = null
+            lockInput = false
+        }
+    }
+
+    val pairsFound = matchedIds.size / 2
+    val totalPairs = shuffledCards.size / 2
+
+    // Status header
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(14.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+        border = BorderStroke(1.dp, memGreen.copy(alpha = 0.3f)),
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center,
         ) {
-            Column(
+            Text(text = "\uD83E\uDDE0", fontSize = 20.sp)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = if (allMatched) "All pairs found!" else "Tap cards to find matching pairs",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (allMatched) memGreen else Color(0xFF059669),
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = "$pairsFound/$totalPairs",
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = memGreen,
+            )
+        }
+    }
+
+    Spacer(modifier = Modifier.height(12.dp))
+
+    // Card grid (4 columns for 8 cards)
+    val columns = if (shuffledCards.size <= 6) 3 else 4
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+        maxItemsInEachRow = columns,
+    ) {
+        shuffledCards.forEach { card ->
+            val isRevealed = card.id in revealedIds
+            val isMatchedCard = card.id in matchedIds
+
+            val cardBg = when {
+                isMatchedCard -> memGreen.copy(alpha = 0.15f)
+                isRevealed -> accentColor.copy(alpha = 0.1f)
+                else -> MindquestColors.Surface
+            }
+            val cardBorder = when {
+                isMatchedCard -> memGreen
+                isRevealed -> accentColor
+                else -> MindquestColors.SurfaceVariant
+            }
+
+            Card(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
+                    .size(72.dp)
+                    .then(
+                        if (!isRevealed && !lockInput && !isConfirmed) {
+                            Modifier.clickable {
+                                if (firstPick == null) {
+                                    // First card of pair
+                                    firstPick = card.id
+                                    revealedIds = revealedIds + card.id
+                                } else if (firstPick != card.id) {
+                                    // Second card — check match
+                                    revealedIds = revealedIds + card.id
+                                    val pick1 = shuffledCards.find { it.id == firstPick }
+                                    if (pick1 != null && pick1.groupKey == card.groupKey) {
+                                        // Match found!
+                                        matchedIds = matchedIds + pick1.id + card.id
+                                        firstPick = null
+                                    } else {
+                                        // Mismatch — lock briefly then hide
+                                        lockInput = true
+                                    }
+                                }
+                            }
+                        } else Modifier
+                    ),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(containerColor = cardBg),
+                border = BorderStroke(
+                    if (isRevealed || isMatchedCard) 2.dp else 1.dp,
+                    cardBorder,
+                ),
             ) {
-                Text(
-                    "\uD83E\uDDE0 Remember These!",
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF059669),
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth(),
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
                 ) {
-                    memoryItems.forEach { item ->
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFD1FAE5)),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(text = item, fontSize = 28.sp)
+                    if (isRevealed || isMatchedCard || isConfirmed) {
+                        // Use visual token rendering for shape:/color: prefixed values
+                        val hasVisualToken = card.display.contains(":") ||
+                            card.display.lowercase().let { d ->
+                                d in listOf("circle", "square", "triangle", "star", "heart",
+                                    "diamond", "pentagon", "hexagon", "octagon",
+                                    "red", "blue", "green", "yellow", "orange", "purple", "pink")
+                            }
+                        if (hasVisualToken) {
+                            VisualTokenFromText(
+                                rawText = card.display,
+                                size = 44.dp,
+                            )
+                        } else {
+                            Text(
+                                text = card.display,
+                                fontSize = if (card.display.length <= 2) 28.sp else 14.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isMatchedCard) memGreen else MindquestColors.TextPrimary,
+                                textAlign = TextAlign.Center,
+                            )
                         }
+                    } else {
+                        Text(
+                            text = "?",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MindquestColors.TextTertiary,
+                        )
                     }
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
     }
+}
 
-    McqOptionsGrid(
-        options = question.options,
-        selectedOptionId = selectedOptionId,
-        isConfirmed = isConfirmed,
-        showFeedback = showFeedback,
-        accentColor = accentColor,
-        onSelect = onSelect,
-    )
+// ── FALLBACK PROMPT CARD ────────────────────────────────────────────────
+
+@Composable
+private fun FallbackPromptCard(
+    title: String,
+    emoji: String,
+    label: String,
+    accentColor: Color,
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(containerColor = accentColor.copy(alpha = 0.06f)),
+        border = BorderStroke(1.dp, accentColor.copy(alpha = 0.2f)),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(
+                text = "$emoji $label",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = accentColor,
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MindquestColors.TextPrimary,
+                textAlign = TextAlign.Center,
+            )
+        }
+    }
 }
 
 // ── Explanation Card ────────────────────────────────────────────────────
@@ -2178,6 +2598,500 @@ private fun ExplanationCard(explanation: String) {
                 fontSize = 14.sp,
                 lineHeight = 20.sp,
             )
+        }
+    }
+}
+
+// ── GRID CELL SELECT ────────────────────────────────────────────────────
+
+@Composable
+private fun GridCellSelectSection(
+    question: Question,
+    selectedOptionId: String?,
+    isConfirmed: Boolean,
+    showFeedback: Boolean = true,
+    accentColor: Color,
+    onSelect: (String) -> Unit,
+) {
+    // Parse grid from promptConfig["grid"]
+    val gridRows: List<List<String>> = remember(question.id) {
+        val gridElement = question.promptConfig?.get("grid")
+        if (gridElement is JsonArray) {
+            gridElement.mapNotNull { rowEl ->
+                (rowEl as? JsonArray)?.map { it.jsonPrimitive.content }
+            }
+        } else {
+            val prompt = question.prompt ?: ""
+            val items = prompt.split("\\s+".toRegex()).filter { it.isNotBlank() }
+            if (items.any { it == "?" }) listOf(items) else emptyList()
+        }
+    }
+
+    if (gridRows.isNotEmpty()) {
+        // Find correct answer label to highlight after confirm
+        val correctLabel = remember(question.id) {
+            question.options.find { it.isCorrect }?.label ?: ""
+        }
+
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF0FDF4)),
+            border = BorderStroke(1.dp, MindquestColors.Success.copy(alpha = 0.3f)),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    "\uD83D\uDD22 Grid Select",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = MindquestColors.Success,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                gridRows.forEach { cells ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                    ) {
+                        cells.forEach { item ->
+                            val isMissing = item == "?"
+                            // After confirm, show the correct answer in the missing cell
+                            val displayText = if (isMissing && isConfirmed && showFeedback) correctLabel
+                            else item
+                            val cellBg = when {
+                                isMissing && isConfirmed && showFeedback -> MindquestColors.Success.copy(alpha = 0.2f)
+                                isMissing -> accentColor.copy(alpha = 0.12f)
+                                else -> Color(0xFFDCFCE7)
+                            }
+                            val cellBorder = when {
+                                isMissing && isConfirmed && showFeedback -> MindquestColors.Success
+                                isMissing -> accentColor
+                                else -> Color.Transparent
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .size(if (isMissing) 50.dp else 46.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(cellBg)
+                                    .then(
+                                        if (isMissing) Modifier.border(
+                                            2.dp, cellBorder, RoundedCornerShape(10.dp),
+                                        ) else Modifier,
+                                    ),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = displayText,
+                                    fontSize = if (isMissing) 22.sp else 20.sp,
+                                    fontWeight = if (isMissing) FontWeight.ExtraBold else FontWeight.Medium,
+                                    color = if (isMissing && isConfirmed && showFeedback) MindquestColors.Success
+                                    else if (isMissing) accentColor
+                                    else MindquestColors.TextPrimary,
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    } else {
+        FallbackPromptCard(
+            title = question.prompt ?: question.title,
+            emoji = "\uD83D\uDD22",
+            label = "Grid Select",
+            accentColor = accentColor,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+
+    McqOptionsGrid(
+        options = question.options,
+        selectedOptionId = selectedOptionId,
+        isConfirmed = isConfirmed,
+        showFeedback = showFeedback,
+        accentColor = accentColor,
+        onSelect = onSelect,
+    )
+}
+
+// ── GRID PATTERN BOOLEAN ────────────────────────────────────────────────
+
+@Composable
+private fun GridPatternBooleanSection(
+    question: Question,
+    selectedOptionId: String?,
+    isConfirmed: Boolean,
+    showFeedback: Boolean = true,
+    accentColor: Color,
+    onSelect: (String) -> Unit,
+) {
+    // Parse grid from promptConfig["grid"]
+    val gridRows: List<List<String>> = remember(question.id) {
+        val gridElement = question.promptConfig?.get("grid")
+        if (gridElement is JsonArray) {
+            gridElement.mapNotNull { rowEl ->
+                (rowEl as? JsonArray)?.map { it.jsonPrimitive.content }
+            }
+        } else emptyList()
+    }
+
+    // Parse property info from metadata
+    val propertyLabel = remember(question.id) {
+        val meta = question.metadata
+        val property = (meta?.get("property") as? JsonElement)?.jsonPrimitive?.content
+            ?: (meta?.get("property") as? String)
+        val axis = (meta?.get("axis") as? JsonElement)?.jsonPrimitive?.content
+            ?: (meta?.get("axis") as? String)
+        buildString {
+            append("\uD83D\uDD04 ")
+            if (property != null) append(property.replaceFirstChar { it.uppercase() })
+            else append("Property")
+            append(" Check")
+            if (axis != null) append(" \u2022 ${axis.replaceFirstChar { it.uppercase() }} Axis")
+        }
+    }
+
+    if (gridRows.isNotEmpty()) {
+        // Grid visualization card
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F3FF)),
+            border = BorderStroke(1.dp, Color(0xFF8B5CF6).copy(alpha = 0.3f)),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    propertyLabel,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF7C3AED),
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+
+                gridRows.forEach { cells ->
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                    ) {
+                        cells.forEach { item ->
+                            Box(
+                                modifier = Modifier
+                                    .size(46.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFFEDE9FE)),
+                                contentAlignment = Alignment.Center,
+                            ) {
+                                Text(
+                                    text = item,
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MindquestColors.TextPrimary,
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
+    } else {
+        FallbackPromptCard(
+            title = question.prompt ?: question.title,
+            emoji = "\uD83D\uDD04",
+            label = "Pattern Check",
+            accentColor = accentColor,
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+    }
+
+    // True/False answer buttons
+    TrueFalseOptions(
+        options = question.options,
+        selectedOptionId = selectedOptionId,
+        isConfirmed = isConfirmed,
+        showFeedback = showFeedback,
+        onSelect = onSelect,
+    )
+}
+
+// ── SEQUENCE TAP ────────────────────────────────────────────────────────
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun SequenceTapSection(
+    question: Question,
+    sequenceTapIds: List<String>,
+    isConfirmed: Boolean,
+    showFeedback: Boolean = true,
+    accentColor: Color,
+    onTap: (String) -> Unit,
+) {
+    // Show duration from promptConfig
+    val showDurationMs = remember(question.id) {
+        val cfg = question.promptConfig
+        val durationEl = cfg?.get("show_duration_ms")
+        try {
+            when (durationEl) {
+                is JsonElement -> durationEl.jsonPrimitive.content.toLong()
+                is Number -> durationEl.toLong()
+                is String -> durationEl.toLong()
+                else -> 3000L
+            }
+        } catch (_: Exception) { 3000L }
+    }
+
+    // Correct order for display during memorize phase
+    val orderedOptions = remember(question.id) {
+        question.options.sortedBy { it.correctPosition ?: it.displayOrder }
+    }
+
+    // Shuffled order for recall phase
+    var shuffledOptions by remember(question.id) {
+        mutableStateOf(emptyList<QuestionOption>())
+    }
+    var showPhase by remember(question.id) { mutableStateOf(true) }
+    var countdownProgress by remember(question.id) { mutableStateOf(1f) }
+
+    // Animated progress for countdown
+    val animatedProgress = remember(question.id) { Animatable(1f) }
+
+    LaunchedEffect(question.id) {
+        showPhase = true
+        countdownProgress = 1f
+        // Animate countdown
+        animatedProgress.snapTo(1f)
+        animatedProgress.animateTo(
+            targetValue = 0f,
+            animationSpec = tween(showDurationMs.toInt(), easing = LinearEasing),
+        )
+        // Transition to recall phase
+        shuffledOptions = question.options.shuffled()
+        showPhase = false
+    }
+
+    if (showPhase) {
+        // ── Memorize Phase ──
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFFEF3C7)),
+            border = BorderStroke(1.dp, Color(0xFFF59E0B).copy(alpha = 0.4f)),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.Center,
+                ) {
+                    Text(
+                        "\uD83D\uDC41\uFE0F Memorize this sequence!",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color(0xFF92400E),
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Countdown bar
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(Color(0xFFF59E0B).copy(alpha = 0.2f)),
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(animatedProgress.value)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(Color(0xFFF59E0B)),
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    orderedOptions.forEachIndexed { index, option ->
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(Color(0xFFFDE68A)),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                // Position badge
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFF59E0B)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    Text(
+                                        text = "${index + 1}",
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.White,
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = option.visualLabel ?: option.label,
+                                    fontSize = 22.sp,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else {
+        // ── Recall Phase ──
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFF0F9FF)),
+            border = BorderStroke(1.dp, accentColor.copy(alpha = 0.3f)),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    "\uD83D\uDC46 Tap in the correct order!",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = accentColor,
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                // Correct order for feedback comparison
+                val correctOrder = remember(question.id) {
+                    question.options
+                        .sortedBy { it.correctPosition ?: it.displayOrder }
+                        .map { it.id }
+                }
+
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterHorizontally),
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    shuffledOptions.forEach { option ->
+                        val tapIndex = sequenceTapIds.indexOf(option.id)
+                        val isTapped = tapIndex >= 0
+                        val correctPositionInSeq = correctOrder.indexOf(option.id)
+
+                        val cardBg = when {
+                            isConfirmed && showFeedback && isTapped && tapIndex == correctPositionInSeq ->
+                                MindquestColors.Success.copy(alpha = 0.2f)
+                            isConfirmed && showFeedback && isTapped ->
+                                MindquestColors.Error.copy(alpha = 0.2f)
+                            isTapped -> accentColor.copy(alpha = 0.15f)
+                            else -> Color(0xFFE0F2FE)
+                        }
+                        val cardBorder = when {
+                            isConfirmed && showFeedback && isTapped && tapIndex == correctPositionInSeq ->
+                                MindquestColors.Success
+                            isConfirmed && showFeedback && isTapped ->
+                                MindquestColors.Error
+                            isTapped -> accentColor
+                            else -> Color.Transparent
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(14.dp))
+                                .background(cardBg)
+                                .then(
+                                    if (isTapped) Modifier.border(
+                                        2.dp, cardBorder, RoundedCornerShape(14.dp),
+                                    ) else Modifier,
+                                )
+                                .then(
+                                    if (!isConfirmed) Modifier.clickable { onTap(option.id) }
+                                    else Modifier,
+                                ),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                if (isTapped) {
+                                    // Show tap order badge
+                                    Box(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clip(CircleShape)
+                                            .background(
+                                                when {
+                                                    isConfirmed && showFeedback && tapIndex == correctPositionInSeq ->
+                                                        MindquestColors.Success
+                                                    isConfirmed && showFeedback ->
+                                                        MindquestColors.Error
+                                                    else -> accentColor
+                                                },
+                                            ),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        Text(
+                                            text = "${tapIndex + 1}",
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = Color.White,
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                }
+                                Text(
+                                    text = option.visualLabel ?: option.label,
+                                    fontSize = 22.sp,
+                                    textAlign = TextAlign.Center,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Progress indicator
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = "${sequenceTapIds.size}/${question.options.size} tapped",
+                    fontSize = 12.sp,
+                    color = MindquestColors.TextTertiary,
+                    fontWeight = FontWeight.Medium,
+                )
+            }
         }
     }
 }

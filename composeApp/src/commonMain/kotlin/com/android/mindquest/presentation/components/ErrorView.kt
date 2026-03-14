@@ -12,10 +12,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import mindquest.composeapp.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
 
 private val TextPrimary = Color(0xFF1E293B)
 private val TextSecondary = Color(0xFF64748B)
@@ -39,7 +43,7 @@ fun ErrorView(
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "Oops! Something went wrong",
+            text = stringResource(Res.string.error_generic_title),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = TextPrimary,
@@ -55,9 +59,11 @@ fun ErrorView(
         )
         Spacer(modifier = Modifier.height(24.dp))
         PrimaryButton(
-            text = "Try Again",
+            text = stringResource(Res.string.common_try_again),
             onClick = onRetry,
-            modifier = Modifier.width(200.dp),
+            modifier = Modifier
+                .width(200.dp)
+                .semantics { contentDescription = "Retry loading content" },
         )
     }
 }
@@ -80,7 +86,7 @@ fun OfflineView(
         )
         Spacer(modifier = Modifier.height(16.dp))
         Text(
-            text = "You're Offline",
+            text = stringResource(Res.string.error_offline_title),
             fontSize = 20.sp,
             fontWeight = FontWeight.Bold,
             color = TextPrimary,
@@ -88,7 +94,7 @@ fun OfflineView(
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Please check your internet connection and try again.",
+            text = stringResource(Res.string.error_offline_message),
             fontSize = 14.sp,
             color = TextSecondary,
             textAlign = TextAlign.Center,
@@ -96,9 +102,11 @@ fun OfflineView(
         )
         Spacer(modifier = Modifier.height(24.dp))
         PrimaryButton(
-            text = "Retry",
+            text = stringResource(Res.string.common_retry),
             onClick = onRetry,
-            modifier = Modifier.width(200.dp),
+            modifier = Modifier
+                .width(200.dp)
+                .semantics { contentDescription = "Retry connection" },
         )
     }
 }

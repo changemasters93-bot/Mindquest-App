@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlin.serialization)
+    alias(libs.plugins.sqldelight)
 }
 
 kotlin {
@@ -67,9 +68,15 @@ kotlin {
             implementation(libs.kotlinx.coroutines.core)
             implementation(libs.kotlinx.datetime)
 
+            // Settings (key-value persistence)
+            implementation(libs.multiplatform.settings.no.arg)
+
             // Coil
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor)
+
+            // SQLDelight
+            implementation(libs.sqldelight.coroutines)
         }
 
         androidMain.dependencies {
@@ -78,10 +85,12 @@ kotlin {
             implementation(libs.ktor.client.android)
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.koin.android)
+            implementation(libs.sqldelight.android.driver)
         }
 
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
+            implementation(libs.sqldelight.native.driver)
         }
     }
 }
@@ -119,5 +128,13 @@ android {
     buildFeatures {
         compose = true
         buildConfig = true
+    }
+}
+
+sqldelight {
+    databases {
+        create("MindquestDatabase") {
+            packageName.set("com.android.mindquest.cache")
+        }
     }
 }

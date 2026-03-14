@@ -21,5 +21,6 @@ data class SubjectPerformance(
     val bestScorePct: Int,
     val accuracyPct: Int,
     val chaptersCompleted: Int = 0,
-    val totalChapters: Int = 0
+    val totalChapters: Int = 0,
+    val rank: Int = 0
 )

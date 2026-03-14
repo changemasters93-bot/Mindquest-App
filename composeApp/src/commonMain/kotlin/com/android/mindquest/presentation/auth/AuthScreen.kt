@@ -47,6 +47,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.android.mindquest.core.util.UiState
+import mindquest.composeapp.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
 
 private val DarkNavy = Color(0xFF0F172A)
 private val DarkPurple = Color(0xFF1E1B4B)
@@ -173,7 +175,7 @@ fun AuthMainContent(
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
-                    text = "Ready to Start!",
+                    text = stringResource(Res.string.auth_ready_to_start),
                     fontSize = 28.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = Color.White,
@@ -182,7 +184,7 @@ fun AuthMainContent(
                 )
                 Spacer(modifier = Modifier.height(6.dp))
                 Text(
-                    text = "Sign in to save your progress across devices",
+                    text = stringResource(Res.string.auth_sign_in_subtitle),
                     fontSize = 14.sp,
                     color = Color.White.copy(alpha = 0.6f),
                     textAlign = TextAlign.Center,
@@ -224,7 +226,7 @@ fun AuthMainContent(
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "Continue with Google",
+                        text = stringResource(Res.string.common_continue_with_google),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextDark,
@@ -258,7 +260,7 @@ fun AuthMainContent(
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "Continue with Phone",
+                        text = stringResource(Res.string.common_continue_with_phone),
                         fontSize = 15.sp,
                         fontWeight = FontWeight.Bold,
                         color = TextDark,
@@ -278,7 +280,7 @@ fun AuthMainContent(
                     color = BorderLight,
                 )
                 Text(
-                    text = "or",
+                    text = stringResource(Res.string.common_or),
                     color = TextMuted,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
@@ -325,7 +327,7 @@ fun AuthMainContent(
                         )
                         Spacer(modifier = Modifier.width(10.dp))
                         Text(
-                            text = "Try Anonymously",
+                            text = stringResource(Res.string.auth_try_anonymously),
                             fontSize = 15.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.White,
@@ -338,7 +340,7 @@ fun AuthMainContent(
 
             // Note text
             Text(
-                text = "Sign in later to save progress & enter tournaments",
+                text = stringResource(Res.string.auth_anonymous_note),
                 fontSize = 12.sp,
                 color = TextMuted,
                 textAlign = TextAlign.Center,
@@ -350,7 +352,7 @@ fun AuthMainContent(
 
             // Terms text
             Text(
-                text = "By continuing, you agree to our Terms of Service & Privacy Policy",
+                text = stringResource(Res.string.auth_terms),
                 fontSize = 10.sp,
                 color = Color(0xFFD1D5DB),
                 textAlign = TextAlign.Center,

@@ -27,5 +27,6 @@ data class SubjectPerformanceDto(
     @SerialName("best_score_pct") val bestScorePct: Int = 0,
     @SerialName("accuracy_pct") val accuracyPct: Int = 0,
     @SerialName("chapters_completed") val chaptersCompleted: Int = 0,
-    @SerialName("total_chapters") val totalChapters: Int = 0
+    @SerialName("total_chapters") val totalChapters: Int = 0,
+    val rank: Int = 0
 )

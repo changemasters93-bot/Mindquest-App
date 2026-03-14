@@ -1,15 +1,21 @@
 package com.android.mindquest.data.repository
 
 import com.android.mindquest.core.constants.AppConstants
+import com.android.mindquest.core.util.AppLogger
+import com.android.mindquest.core.util.ErrorMapper
 import com.android.mindquest.core.util.Resource
+import com.android.mindquest.core.util.withRetry
 import com.android.mindquest.data.mapper.toDomain
 import com.android.mindquest.data.mock.MockDataSource
 import com.android.mindquest.data.remote.ApiService
 import com.android.mindquest.domain.model.LeaderboardEntry
 import com.android.mindquest.domain.model.QuizAnswer
 import com.android.mindquest.domain.model.QuizResult
+import com.android.mindquest.domain.model.Quiz
 import com.android.mindquest.domain.model.Tournament
 import com.android.mindquest.domain.model.TournamentEntry
+import com.android.mindquest.domain.model.TournamentEntryStatus
+import com.android.mindquest.domain.model.TournamentStartResult
 import com.android.mindquest.domain.repository.TournamentRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
@@ -30,12 +36,33 @@ class TournamentRepositoryImpl(
                 // Use scenario-aware mock data so lobby sees correct userEntryStatus
                 Resource.Success(MockDataSource.mockDashboard().activeTournament)
             } else {
-                val response = apiService.getActiveTournament(userId, gradeId)
+                val response = withRetry { apiService.getActiveTournament(userId, gradeId) }
                 Resource.Success(response?.toDomain())
             }
         } catch (e: Exception) {
+            AppLogger.e("TournamentRepo", "load tournament failed", e)
             Resource.Error(
-                message = e.message ?: "Failed to load tournament",
+                message = ErrorMapper.toUserMessage(e),
+                throwable = e
+            )
+        }
+    }
+
+    override suspend fun getTournamentEntry(
+        userId: String,
+        tournamentId: String
+    ): Resource<TournamentEntry?> {
+        return try {
+            if (AppConstants.USE_MOCK_DATA) {
+                Resource.Success(MockDataSource.mockCompletedTournamentEntry())
+            } else {
+                val dto = withRetry { apiService.getTournamentEntry(userId, tournamentId) }
+                Resource.Success(dto?.toDomain())
+            }
+        } catch (e: Exception) {
+            AppLogger.e("TournamentRepo", "load tournament entry failed", e)
+            Resource.Error(
+                message = ErrorMapper.toUserMessage(e),
                 throwable = e
             )
         }
@@ -44,25 +71,41 @@ class TournamentRepositoryImpl(
     override suspend fun startTournament(
         userId: String,
         tournamentId: String
-    ): Resource<TournamentEntry> {
+    ): Resource<TournamentStartResult> {
         return try {
             if (AppConstants.USE_MOCK_DATA) {
-                Resource.Success(MockDataSource.mockTournamentEntry())
-            } else {
-                val response = apiService.startTournament(userId, tournamentId)
                 Resource.Success(
-                    TournamentEntry(
-                        id = response.entryId,
-                        tournamentId = tournamentId,
-                        userId = userId,
-                        status = com.android.mindquest.domain.model.TournamentEntryStatus.IN_PROGRESS,
-                        timeRemainingSeconds = response.timeLimitSecs
+                    TournamentStartResult(
+                        entry = MockDataSource.mockTournamentEntry(),
+                        quiz = MockDataSource.mockTournamentQuiz(),
                     )
                 )
+            } else {
+                val response = apiService.startTournament(userId, tournamentId)
+                val entry = TournamentEntry(
+                    id = response.entryId,
+                    tournamentId = tournamentId,
+                    userId = userId,
+                    status = TournamentEntryStatus.IN_PROGRESS,
+                    timeRemainingSeconds = response.timeLimitSecs
+                )
+                val questions = response.questions.map { it.toDomain() }
+                val quiz = Quiz(
+                    id = "tournament_$tournamentId",
+                    title = "Tournament",
+                    quizType = "tournament",
+                    questionCount = questions.size,
+                    timeLimitSeconds = response.timeLimitSecs,
+                    maxXp = 0,
+                    displayOrder = 0,
+                    questions = questions,
+                )
+                Resource.Success(TournamentStartResult(entry = entry, quiz = quiz))
             }
         } catch (e: Exception) {
+            AppLogger.e("TournamentRepo", "start tournament failed", e)
             Resource.Error(
-                message = e.message ?: "Failed to start tournament",
+                message = ErrorMapper.toUserMessage(e),
                 throwable = e
             )
         }
@@ -77,8 +120,9 @@ class TournamentRepositoryImpl(
                 Resource.Success(response.timeRemainingSecs ?: 0)
             }
         } catch (e: Exception) {
+            AppLogger.e("TournamentRepo", "pause tournament failed", e)
             Resource.Error(
-                message = e.message ?: "Failed to pause tournament",
+                message = ErrorMapper.toUserMessage(e),
                 throwable = e
             )
         }
@@ -93,8 +137,9 @@ class TournamentRepositoryImpl(
                 Resource.Success(response.toDomain())
             }
         } catch (e: Exception) {
+            AppLogger.e("TournamentRepo", "resume tournament failed", e)
             Resource.Error(
-                message = e.message ?: "Failed to resume tournament",
+                message = ErrorMapper.toUserMessage(e),
                 throwable = e
             )
         }
@@ -126,8 +171,9 @@ class TournamentRepositoryImpl(
                 Resource.Success(response.toDomain())
             }
         } catch (e: Exception) {
+            AppLogger.e("TournamentRepo", "submit tournament failed", e)
             Resource.Error(
-                message = e.message ?: "Failed to submit tournament",
+                message = ErrorMapper.toUserMessage(e),
                 throwable = e
             )
         }
@@ -153,21 +199,29 @@ class TournamentRepositoryImpl(
             }
         } catch (e: Exception) {
             // Fire-and-forget: log but don't block the user
+            AppLogger.e("TournamentRepo", "submit answer failed", e)
             Resource.Error(
-                message = e.message ?: "Failed to submit answer",
+                message = ErrorMapper.toUserMessage(e),
                 throwable = e,
             )
         }
     }
 
     override fun observeTournamentLeaderboard(tournamentId: String): Flow<List<LeaderboardEntry>> {
-        // For mock mode, emit a static leaderboard. In production, this would
-        // subscribe to Supabase Realtime changes on the tournament_entries table.
+        // For mock mode, emit a static leaderboard. In production, fetch from API.
+        // Note: A full Supabase Realtime subscription could be added later for live updates.
         return if (AppConstants.USE_MOCK_DATA) {
             flowOf(MockDataSource.mockLeaderboard().rankedUsers)
         } else {
-            // TODO: Implement Supabase Realtime subscription for live leaderboard
-            flowOf(emptyList())
+            kotlinx.coroutines.flow.flow {
+                try {
+                    val response = apiService.getTournamentLeaderboard(tournamentId, "", 50, 0)
+                    emit(response.rankedUsers.map { it.toDomain() })
+                } catch (e: Exception) {
+                    AppLogger.e("TournamentRepo", "load tournament leaderboard failed", e)
+                    emit(emptyList())
+                }
+            }
         }
     }
 }

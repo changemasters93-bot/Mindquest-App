@@ -52,8 +52,8 @@ import com.android.mindquest.domain.model.UserRank
 import com.android.mindquest.presentation.components.AvatarView
 import com.android.mindquest.presentation.components.ErrorView
 import com.android.mindquest.presentation.components.LoadingView
-import com.android.mindquest.presentation.components.XpPill
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.material3.CircularProgressIndicator
 import kotlin.math.absoluteValue
 import kotlin.random.Random
 
@@ -83,11 +83,6 @@ private val XpChipText = Color(0xFF92400E)
 @Composable
 fun LeaderboardScreen(
     viewModel: LeaderboardViewModel,
-    userName: String = "",
-    userGrade: String = "",
-    userAvatarId: Int = 1,
-    userXp: Int = 0,
-    userLevel: Int = 1,
     userId: String = "current_user",
 ) {
     val leaderboardState by viewModel.leaderboardState.collectAsState()
@@ -97,18 +92,22 @@ fun LeaderboardScreen(
         viewModel.loadLeaderboard(userId, viewModel.activeFilter)
     }
 
+    // Extract user info from leaderboard data for header
+    val currentUserEntry = (leaderboardState as? UiState.Success)?.data
+        ?.rankedUsers?.find { it.userId == userId }
+    val userRank = (leaderboardState as? UiState.Success)?.data?.userRank
+
     Column(
         modifier = Modifier
             .fillMaxSize()
             .background(MindquestColors.Background),
     ) {
-        // ── Header ───────────────────────────────────────────────────────
+        // ── Header (populated from leaderboard data) ──────────────────
         LeaderboardHeader(
-            userName = userName,
-            userGrade = userGrade,
-            userAvatarId = userAvatarId,
-            userXp = userXp,
-            userLevel = userLevel,
+            userName = currentUserEntry?.displayName ?: "",
+            userAvatarId = currentUserEntry?.avatarId ?: 1,
+            userXp = currentUserEntry?.totalXp?.toInt() ?: 0,
+            userRank = userRank?.rankGlobal ?: 0,
         )
 
         // ── Filter Tabs ──────────────────────────────────────────────────
@@ -133,6 +132,8 @@ fun LeaderboardScreen(
                 LeaderboardContent(
                     data = state.data,
                     currentUserId = userId,
+                    viewModel = viewModel,
+                    userId = userId,
                 )
             }
         }
@@ -144,10 +145,9 @@ fun LeaderboardScreen(
 @Composable
 private fun LeaderboardHeader(
     userName: String,
-    userGrade: String,
     userAvatarId: Int,
     userXp: Int,
-    userLevel: Int,
+    userRank: Int,
 ) {
     Row(
         modifier = Modifier
@@ -165,13 +165,31 @@ private fun LeaderboardHeader(
                 fontWeight = FontWeight.Bold,
                 color = MindquestColors.TextPrimary,
             )
-            Text(
-                text = userGrade,
-                fontSize = 12.sp,
-                color = MindquestColors.TextTertiary,
-            )
+            if (userRank > 0) {
+                Text(
+                    text = "Rank #$userRank",
+                    fontSize = 12.sp,
+                    color = MindquestColors.TextTertiary,
+                )
+            }
         }
-        XpPill(xp = userXp, level = userLevel, maxXpForLevel = (userLevel + 1) * 100)
+        // XP badge
+        if (userXp > 0) {
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(20.dp))
+                    .background(Color(0xFFFFFBEB))
+                    .border(1.dp, Color(0xFFFDE68A), RoundedCornerShape(20.dp))
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+            ) {
+                Text(
+                    text = "\u26A1 $userXp XP",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color(0xFF92400E),
+                )
+            }
+        }
     }
 }
 
@@ -244,9 +262,12 @@ private fun FilterTabs(
 private fun LeaderboardContent(
     data: LeaderboardData,
     currentUserId: String,
+    viewModel: LeaderboardViewModel,
+    userId: String,
 ) {
     val topThree = data.rankedUsers.take(3)
     val allEntries = data.rankedUsers
+    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -277,11 +298,36 @@ private fun LeaderboardContent(
         }
 
         // Rank rows
-        itemsIndexed(allEntries) { _, entry ->
+        itemsIndexed(allEntries) { index, entry ->
             RankRow(
                 entry = entry,
                 isCurrentUser = entry.userId == currentUserId,
             )
+
+            // Trigger pagination when near the bottom
+            if (index >= allEntries.size - 5 && viewModel.hasMorePages && !isLoadingMore) {
+                LaunchedEffect(allEntries.size) {
+                    viewModel.loadMoreLeaderboard(userId)
+                }
+            }
+        }
+
+        // Loading indicator for pagination
+        if (isLoadingMore) {
+            item {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(24.dp),
+                        strokeWidth = 2.dp,
+                        color = Color(0xFF4F46E5),
+                    )
+                }
+            }
         }
 
         // Bottom spacer
@@ -827,7 +873,7 @@ private fun YourRankCard(
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "#${userRank.rankCountry ?: userRank.rankGlobal}",
+                        text = "#${userRank.rankGlobal}",
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Black,
                         color = Color(0xFF818CF8),

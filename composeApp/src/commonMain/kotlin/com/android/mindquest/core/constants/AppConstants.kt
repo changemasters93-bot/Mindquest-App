@@ -11,15 +11,15 @@ object AppConstants {
     // ── Feature flags ──────────────────────────────────────────────────
 
     /** When `true` the app uses local mock data instead of hitting Supabase. */
-    const val USE_MOCK_DATA: Boolean = true
+    const val USE_MOCK_DATA: Boolean = false
 
     // ── Supabase ───────────────────────────────────────────────────────
 
     /** Supabase project URL. Replace with real value before release. */
-    const val SUPABASE_URL: String = ""
+    const val SUPABASE_URL: String = "https://licxsuvpqoyjlremthwr.supabase.co"
 
     /** Supabase anonymous / public API key. Replace with real value before release. */
-    const val SUPABASE_ANON_KEY: String = ""
+    const val SUPABASE_ANON_KEY: String = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpY3hzdXZwcW95amxyZW10aHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNjIzNjAsImV4cCI6MjA4ODczODM2MH0.lCcWJEGPlpaGdn3ag-chNpGrHVopxtCVRnzyyLESOxU"
 
     // ── Leaderboard ────────────────────────────────────────────────────
 
@@ -45,6 +45,11 @@ object AppConstants {
 
     /** XP awarded for participating in a tournament round. */
     const val TOURNAMENT_PARTICIPATION_XP: Int = 30
+
+    // ── Quiz progression ──────────────────────────────────────────────
+
+    /** When true, quizzes unlock one-by-one (must complete current before next unlocks). */
+    const val ENABLE_SEQUENTIAL_QUIZ_UNLOCK: Boolean = true
 
     // ── Avatar ─────────────────────────────────────────────────────────
 
@@ -84,14 +89,19 @@ object AppConstants {
      */
     val LEVEL_XP_THRESHOLDS: List<Int> = listOf(
         0,          // Level 1
-        100,        // Level 2
-        250,        // Level 3
-        500,        // Level 4
-        1_000,      // Level 5
-        2_000,      // Level 6
-        4_000,      // Level 7
-        7_000,      // Level 8
-        12_000,     // Level 9
-        20_000,     // Level 10
+        300,        // Level 2
+        600,        // Level 3
+        1_000,      // Level 4
+        1_400,      // Level 5
+        1_900,      // Level 6
+        2_500,      // Level 7
+        3_200,      // Level 8
+        4_000,      // Level 9
+        5_000,      // Level 10
     )
+
+    // ── IQ Test ──────────────────────────────────────────────────────
+
+    /** UUID of the IQ quiz in Supabase seed data. */
+    const val IQ_QUIZ_ID: String = "c1000000-0000-0000-0000-000000000099"
 }

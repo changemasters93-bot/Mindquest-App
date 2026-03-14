@@ -1,0 +1,172 @@
+-- Cached dashboard JSON blob (simple approach for offline viewing)
+CREATE TABLE cached_dashboard (
+    user_id TEXT NOT NULL PRIMARY KEY,
+    json_data TEXT NOT NULL,
+    cached_at INTEGER NOT NULL
+);
+
+-- Cached modules for offline browsing
+CREATE TABLE cached_module (
+    id TEXT NOT NULL PRIMARY KEY,
+    title TEXT NOT NULL,
+    subtitle TEXT,
+    emoji TEXT NOT NULL DEFAULT '',
+    accent_color TEXT NOT NULL DEFAULT '',
+    display_order INTEGER NOT NULL DEFAULT 0,
+    current_chapter_id TEXT,
+    current_quiz_id TEXT,
+    best_score_pct INTEGER,
+    is_completed INTEGER NOT NULL DEFAULT 0,
+    completed_chapters INTEGER NOT NULL DEFAULT 0,
+    total_chapters INTEGER NOT NULL DEFAULT 0,
+    total_xp_earned INTEGER NOT NULL DEFAULT 0,
+    cached_at INTEGER NOT NULL
+);
+
+-- Cached chapters
+CREATE TABLE cached_chapter (
+    id TEXT NOT NULL PRIMARY KEY,
+    module_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    chapter_number INTEGER NOT NULL DEFAULT 0,
+    quiz_count INTEGER NOT NULL DEFAULT 0,
+    state TEXT NOT NULL DEFAULT 'LOCKED',
+    quizzes_done INTEGER NOT NULL DEFAULT 0,
+    total_quizzes INTEGER NOT NULL DEFAULT 0,
+    best_score_pct INTEGER,
+    is_completed INTEGER NOT NULL DEFAULT 0,
+    cached_at INTEGER NOT NULL
+);
+
+-- Cached quiz metadata (not full questions - those are large)
+CREATE TABLE cached_quiz (
+    id TEXT NOT NULL PRIMARY KEY,
+    chapter_id TEXT NOT NULL,
+    title TEXT NOT NULL,
+    quiz_type TEXT NOT NULL,
+    question_count INTEGER NOT NULL DEFAULT 0,
+    time_limit_seconds INTEGER NOT NULL DEFAULT 0,
+    max_xp INTEGER NOT NULL DEFAULT 0,
+    difficulty TEXT,
+    display_order INTEGER NOT NULL DEFAULT 0,
+    best_score INTEGER,
+    attempt_count INTEGER NOT NULL DEFAULT 0,
+    is_locked INTEGER NOT NULL DEFAULT 0,
+    cached_at INTEGER NOT NULL
+);
+
+-- Cached user stats JSON
+CREATE TABLE cached_stats (
+    user_id TEXT NOT NULL,
+    period TEXT NOT NULL,
+    json_data TEXT NOT NULL,
+    cached_at INTEGER NOT NULL,
+    PRIMARY KEY (user_id, period)
+);
+
+-- Cached reference data
+CREATE TABLE cached_grade (
+    id TEXT NOT NULL PRIMARY KEY,
+    name TEXT NOT NULL,
+    display_order INTEGER NOT NULL DEFAULT 0
+);
+
+-- Pending operations queue (for offline submissions)
+CREATE TABLE pending_operation (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    operation_type TEXT NOT NULL,
+    payload TEXT NOT NULL,
+    created_at INTEGER NOT NULL,
+    retry_count INTEGER NOT NULL DEFAULT 0
+);
+
+-- ═══════════════════════════════════════════════════════════════
+-- Queries
+-- ═══════════════════════════════════════════════════════════════
+
+-- Dashboard
+selectDashboard:
+SELECT * FROM cached_dashboard WHERE user_id = ?;
+
+insertDashboard:
+INSERT OR REPLACE INTO cached_dashboard(user_id, json_data, cached_at) VALUES (?, ?, ?);
+
+-- Modules
+selectModules:
+SELECT * FROM cached_module ORDER BY display_order ASC;
+
+insertModule:
+INSERT OR REPLACE INTO cached_module(
+    id, title, subtitle, emoji, accent_color, display_order,
+    current_chapter_id, current_quiz_id, best_score_pct, is_completed,
+    completed_chapters, total_chapters, total_xp_earned, cached_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- Chapters
+selectChaptersByModule:
+SELECT * FROM cached_chapter WHERE module_id = ? ORDER BY chapter_number ASC;
+
+insertChapter:
+INSERT OR REPLACE INTO cached_chapter(
+    id, module_id, title, chapter_number, quiz_count, state,
+    quizzes_done, total_quizzes, best_score_pct, is_completed, cached_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- Quizzes
+selectQuizzesByChapter:
+SELECT * FROM cached_quiz WHERE chapter_id = ? ORDER BY display_order ASC;
+
+insertQuiz:
+INSERT OR REPLACE INTO cached_quiz(
+    id, chapter_id, title, quiz_type, question_count, time_limit_seconds,
+    max_xp, difficulty, display_order, best_score, attempt_count, is_locked, cached_at
+) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?);
+
+-- Stats
+selectStats:
+SELECT * FROM cached_stats WHERE user_id = ? AND period = ?;
+
+insertStats:
+INSERT OR REPLACE INTO cached_stats(user_id, period, json_data, cached_at) VALUES (?, ?, ?, ?);
+
+-- Grades
+selectGrades:
+SELECT * FROM cached_grade ORDER BY display_order ASC;
+
+insertGrade:
+INSERT OR REPLACE INTO cached_grade(id, name, display_order) VALUES (?, ?, ?);
+
+-- Pending operations
+selectPendingOperations:
+SELECT * FROM pending_operation ORDER BY created_at ASC;
+
+insertPendingOperation:
+INSERT INTO pending_operation(operation_type, payload, created_at, retry_count) VALUES (?, ?, ?, 0);
+
+deletePendingOperation:
+DELETE FROM pending_operation WHERE id = ?;
+
+updatePendingRetryCount:
+UPDATE pending_operation SET retry_count = retry_count + 1 WHERE id = ?;
+
+-- Cache maintenance
+clearOldCache:
+DELETE FROM cached_dashboard WHERE cached_at < ?;
+
+clearAllModules:
+DELETE FROM cached_module;
+
+clearAllChapters:
+DELETE FROM cached_chapter;
+
+clearAllQuizzes:
+DELETE FROM cached_quiz;
+
+clearAllStats:
+DELETE FROM cached_stats;
+
+clearAllDashboard:
+DELETE FROM cached_dashboard;
+
+clearAllPendingOperations:
+DELETE FROM pending_operation;

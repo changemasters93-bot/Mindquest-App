@@ -1,7 +1,10 @@
 package com.android.mindquest.data.repository
 
 import com.android.mindquest.core.constants.AppConstants
+import com.android.mindquest.core.util.AppLogger
+import com.android.mindquest.core.util.ErrorMapper
 import com.android.mindquest.core.util.Resource
+import com.android.mindquest.core.util.withRetry
 import com.android.mindquest.data.mapper.toDomain
 import com.android.mindquest.data.mock.MockDataSource
 import com.android.mindquest.data.remote.ApiService
@@ -18,12 +21,13 @@ class DashboardRepositoryImpl(
             if (AppConstants.USE_MOCK_DATA) {
                 Resource.Success(MockDataSource.mockDashboard())
             } else {
-                val response = apiService.getUserDashboard(userId)
+                val response = withRetry { apiService.getUserDashboard(userId) }
                 Resource.Success(response.toDomain())
             }
         } catch (e: Exception) {
+            AppLogger.e("DashboardRepo", "load dashboard failed", e)
             Resource.Error(
-                message = e.message ?: "Failed to load dashboard",
+                message = ErrorMapper.toUserMessage(e),
                 throwable = e
             )
         }
@@ -34,12 +38,13 @@ class DashboardRepositoryImpl(
             if (AppConstants.USE_MOCK_DATA) {
                 Resource.Success(MockDataSource.mockDailyChallenges())
             } else {
-                val response = apiService.getDailyChallenges(userId)
+                val response = withRetry { apiService.getDailyChallenges(userId) }
                 Resource.Success(response.map { it.toDomain() })
             }
         } catch (e: Exception) {
+            AppLogger.e("DashboardRepo", "load daily challenges failed", e)
             Resource.Error(
-                message = e.message ?: "Failed to load daily challenges",
+                message = ErrorMapper.toUserMessage(e),
                 throwable = e
             )
         }

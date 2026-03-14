@@ -20,8 +20,18 @@ import com.android.mindquest.domain.model.QuizConfig
  */
 object QuizSessionHolder {
 
+    /** Whether there's a pending quiz state that survived process death. */
+    var hasPendingRecovery: Boolean = false
+
     /** The quiz selected for play, consumed by QuizIntro and QuizPlay. */
     var currentQuiz: Quiz? = null
+
+    /**
+     * Quiz ID for lazy-loading (daily challenge, IQ test).
+     * When set, [currentQuiz] may be null and the quiz is loaded from API
+     * by [QuizViewModel.startFromSession].
+     */
+    var quizId: String? = null
         private set
 
     /**
@@ -68,6 +78,28 @@ object QuizSessionHolder {
         moduleTitle: String = "",
     ) {
         this.currentQuiz = quiz
+        this.quizId = null // Reset to avoid stale ID from a previous selectQuizById call
+        this.config = config
+        this.moduleColor = moduleColor
+        this.moduleEmoji = moduleEmoji
+        this.moduleTitle = moduleTitle
+        this.completedQuestions = emptyList()
+        this.completedAnswers = emptyList()
+    }
+
+    /**
+     * Prepare a quiz session by ID only (quiz data will be loaded from API).
+     * Used for daily challenges and IQ tests.
+     */
+    fun selectQuizById(
+        quizId: String,
+        config: QuizConfig,
+        moduleColor: String = config.accentColorHex ?: "",
+        moduleEmoji: String = "",
+        moduleTitle: String = "",
+    ) {
+        this.quizId = quizId
+        this.currentQuiz = null // will be loaded by ViewModel
         this.config = config
         this.moduleColor = moduleColor
         this.moduleEmoji = moduleEmoji
@@ -86,11 +118,13 @@ object QuizSessionHolder {
 
     fun clear() {
         currentQuiz = null
+        quizId = null
         config = null
         moduleColor = ""
         moduleEmoji = ""
         moduleTitle = ""
         completedQuestions = emptyList()
         completedAnswers = emptyList()
+        hasPendingRecovery = false
     }
 }

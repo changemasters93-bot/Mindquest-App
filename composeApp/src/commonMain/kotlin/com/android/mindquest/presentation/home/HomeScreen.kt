@@ -50,6 +50,8 @@ import com.android.mindquest.presentation.components.LinkAccountDialog
 import com.android.mindquest.presentation.components.LoadingView
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import mindquest.composeapp.generated.resources.*
+import org.jetbrains.compose.resources.stringResource
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -59,7 +61,7 @@ fun HomeScreen(
     onNavigateToDailyChallenge: (DailyChallenge) -> Unit,
     onNavigateToTournament: () -> Unit,
     onNavigateToTournamentResult: () -> Unit = {},
-    onNavigateToIqTest: () -> Unit = {},
+    onNavigateToIqTest: (quizId: String) -> Unit = {},
     onLinkAccount: () -> Unit = {},
     onGoogleSignIn: () -> Unit = {},
     onPhoneSignIn: () -> Unit = {},
@@ -101,7 +103,7 @@ fun HomeScreen(
 
             is UiState.Empty -> {
                 ErrorView(
-                    message = "No data available yet. Start your learning journey!",
+                    message = stringResource(Res.string.error_no_data),
                     onRetry = { viewModel.refreshAll() },
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -109,7 +111,7 @@ fun HomeScreen(
 
             is UiState.Offline -> {
                 ErrorView(
-                    message = "You appear to be offline. Please check your connection.",
+                    message = stringResource(Res.string.error_offline_appear),
                     onRetry = { viewModel.refreshAll() },
                     modifier = Modifier.fillMaxSize(),
                 )
@@ -193,8 +195,8 @@ fun HomeScreen(
                         if (data.modules.isNotEmpty()) {
                             item(key = "subjects_header") {
                                 SectionHeaderWithSub(
-                                    title = "Daily Practice",
-                                    subtitle = "Continue where you left off",
+                                    title = stringResource(Res.string.home_daily_practice),
+                                    subtitle = stringResource(Res.string.home_daily_practice_subtitle),
                                     emoji = "\uD83D\uDCDA",
                                     modifier = Modifier.padding(
                                         start = 16.dp,
@@ -237,8 +239,8 @@ fun HomeScreen(
                         // ── 5. Brain Training — IQ Test ──────────────────────
                         item(key = "iq_test_card") {
                             SectionHeaderWithSub(
-                                title = "Brain Training",
-                                subtitle = "Challenge your intelligence",
+                                title = stringResource(Res.string.home_brain_training),
+                                subtitle = stringResource(Res.string.home_brain_training_subtitle),
                                 emoji = "\uD83E\uDDE0",
                                 modifier = Modifier.padding(
                                     start = 16.dp,
@@ -247,11 +249,14 @@ fun HomeScreen(
                                     bottom = 8.dp,
                                 ),
                             )
-                            IqTestCard(
-                                onStartIqTest = onNavigateToIqTest,
-                                lastAttemptDateMillis = data.lastIqTestDateMillis,
-                                modifier = Modifier.padding(horizontal = 16.dp),
-                            )
+                            if (data.iqQuizId != null) {
+                                IqTestCard(
+                                    onStartIqTest = { onNavigateToIqTest(data.iqQuizId) },
+                                    lastAttemptDateMillis = data.lastIqTestDateMillis,
+                                    cooldownHours = data.iqCooldownHours,
+                                    modifier = Modifier.padding(horizontal = 16.dp),
+                                )
+                            }
                         }
                     }
                 }
@@ -310,7 +315,7 @@ private fun HomeHeader(
         // Greeting + grade
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "Hi, ${user.displayName} \uD83D\uDC4B",
+                text = stringResource(Res.string.home_greeting, user.displayName),
                 fontSize = 17.sp,
                 fontWeight = FontWeight.Bold,
                 color = MindquestColors.TextPrimary,
@@ -373,13 +378,13 @@ private fun XpHeaderPill(
 
         Column {
             Text(
-                text = "$totalXp XP",
+                text = stringResource(Res.string.common_xp_format, totalXp),
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold,
                 color = HeaderAmberText,
             )
             Text(
-                text = "Level $level",
+                text = stringResource(Res.string.common_level_format, level),
                 fontSize = 10.sp,
                 fontWeight = FontWeight.Medium,
                 color = HeaderAmberSub,

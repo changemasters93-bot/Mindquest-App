@@ -11,6 +11,7 @@ import com.android.mindquest.data.remote.dto.DashboardResponseDto
 import com.android.mindquest.data.remote.dto.GradeDto
 import com.android.mindquest.data.remote.dto.LeaderboardEntryDto
 import com.android.mindquest.data.remote.dto.LeaderboardResponseDto
+import com.android.mindquest.data.remote.dto.TournamentLeaderboardEntryDto
 import com.android.mindquest.data.remote.dto.MatchPairDto
 import com.android.mindquest.data.remote.dto.ModuleDto
 import com.android.mindquest.data.remote.dto.ModuleProgressDto
@@ -97,7 +98,8 @@ fun UserStatsDto.toDomain(): UserStats = UserStats(
     quizzesCompleted = quizzesCompleted,
     accuracyPct = accuracyPct,
     tournamentsPlayed = tournamentsPlayed,
-    bestTournamentRank = bestTournamentRank
+    bestTournamentRank = bestTournamentRank,
+    iqScore = iqBestScore
 )
 
 // ── Module ───────────────────────────────────────────────────────────────
@@ -105,6 +107,7 @@ fun UserStatsDto.toDomain(): UserStats = UserStats(
 fun ModuleWithProgressDto.toDomain(): Module = Module(
     id = id,
     title = title,
+    subtitle = subtitle,
     emoji = emoji,
     accentColor = accentColor,
     displayOrder = sortOrder,
@@ -124,7 +127,10 @@ fun ModuleProgressDto.toDomain(): ModuleProgress = ModuleProgress(
     currentChapterId = currentChapterId,
     currentQuizId = currentQuizId,
     bestScorePct = bestScorePct,
-    isCompleted = isCompleted
+    isCompleted = isCompleted,
+    completedChapters = completedChapters,
+    totalChapters = totalChapters,
+    totalXpEarned = totalXpEarned,
 )
 
 // ── Dashboard ────────────────────────────────────────────────────────────
@@ -133,7 +139,12 @@ fun DashboardResponseDto.toDomain(): DashboardData = DashboardData(
     user = user.toDomain(),
     stats = stats.toDomain(),
     modules = modules.map { it.toDomain() },
-    activeTournament = activeTournament?.toDomain()
+    activeTournament = activeTournament?.toDomain(),
+    lastIqTestDateMillis = stats.lastIqAttemptAt?.let {
+        try { Instant.parse(it).toEpochMilliseconds() } catch (_: Exception) { null }
+    },
+    iqCooldownHours = stats.iqCooldownHours ?: 168,
+    iqQuizId = stats.iqQuizId,
 )
 
 // ── Chapter ──────────────────────────────────────────────────────────────
@@ -173,6 +184,7 @@ fun QuizDto.toDomain(): Quiz = Quiz(
     displayOrder = sortOrder,
     bestScore = bestScore,
     attemptCount = attemptCount,
+    isLocked = isLocked,
     questions = questions.map { it.toDomain() }
 )
 
@@ -224,7 +236,8 @@ fun QuizResultDto.toDomain(): QuizResult = QuizResult(
     levelChanged = levelChanged,
     rankGlobal = rankGlobal,
     isReplay = isReplay,
-    nextQuizId = nextQuizId
+    nextQuizId = nextQuizId,
+    iqScore = iqScore
 )
 
 // ── Leaderboard ──────────────────────────────────────────────────────────
@@ -249,6 +262,16 @@ fun LeaderboardResponseDto.toDomain(): LeaderboardData = LeaderboardData(
     userRank = userRank.toDomain()
 )
 
+/** Maps tournament leaderboard entries to the shared [LeaderboardEntry] domain model.
+ *  Tournament `score` is mapped to `totalXp` for display uniformity. */
+fun TournamentLeaderboardEntryDto.toDomain(): LeaderboardEntry = LeaderboardEntry(
+    userId = userId,
+    displayName = displayName,
+    avatarId = avatarId,
+    totalXp = score.toLong(),
+    rank = rank
+)
+
 // ── Stats ────────────────────────────────────────────────────────────────
 
 fun DailyActivityDto.toDomain(): DailyActivity = DailyActivity(
@@ -265,7 +288,8 @@ fun SubjectPerformanceDto.toDomain(): SubjectPerformance = SubjectPerformance(
     bestScorePct = bestScorePct,
     accuracyPct = accuracyPct,
     chaptersCompleted = chaptersCompleted,
-    totalChapters = totalChapters
+    totalChapters = totalChapters,
+    rank = rank
 )
 
 fun StatsResponseDto.toDomain(): StatsData = StatsData(
@@ -360,6 +384,7 @@ fun TournamentEntryDto.toDomain(): TournamentEntry = TournamentEntry(
     score = score,
     timeTakenSeconds = timeTakenSeconds,
     rank = rank,
+    questionsAnswered = answersSoFar?.size ?: 0,
     timeRemainingSeconds = timeRemainingSecs
 )
 

@@ -14,5 +14,8 @@ data class ModuleProgress(
     val currentChapterId: String? = null,
     val currentQuizId: String? = null,
     val bestScorePct: Int? = null,
-    val isCompleted: Boolean = false
+    val isCompleted: Boolean = false,
+    val completedChapters: Int = 0,
+    val totalChapters: Int = 0,
+    val totalXpEarned: Long = 0,
 )

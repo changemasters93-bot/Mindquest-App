@@ -36,12 +36,16 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -57,6 +61,26 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.android.mindquest.core.util.UiState
+
+data class PhoneCountry(
+    val name: String,
+    val code: String,
+    val flag: String,
+    val maxDigits: Int,
+)
+
+private val PHONE_COUNTRIES = listOf(
+    PhoneCountry("India", "+91", "\uD83C\uDDEE\uD83C\uDDF3", 10),
+    PhoneCountry("USA", "+1", "\uD83C\uDDFA\uD83C\uDDF8", 10),
+    PhoneCountry("UK", "+44", "\uD83C\uDDEC\uD83C\uDDE7", 10),
+    PhoneCountry("UAE", "+971", "\uD83C\uDDE6\uD83C\uDDEA", 9),
+    PhoneCountry("Singapore", "+65", "\uD83C\uDDF8\uD83C\uDDEC", 8),
+    PhoneCountry("Australia", "+61", "\uD83C\uDDE6\uD83C\uDDFA", 9),
+    PhoneCountry("Canada", "+1", "\uD83C\uDDE8\uD83C\uDDE6", 10),
+    PhoneCountry("Germany", "+49", "\uD83C\uDDE9\uD83C\uDDEA", 11),
+    PhoneCountry("France", "+33", "\uD83C\uDDEB\uD83C\uDDF7", 9),
+    PhoneCountry("Japan", "+81", "\uD83C\uDDEF\uD83C\uDDF5", 10),
+)
 
 private val PrimaryColor = Color(0xFF4F46E5)
 private val DarkIndigo = Color(0xFF4338CA)
@@ -80,6 +104,7 @@ fun PhoneOtpScreen(
     val phoneNumber by viewModel.phoneNumber.collectAsState()
     val otpCode by viewModel.otpCode.collectAsState()
     val resendTimer by viewModel.resendTimer.collectAsState()
+    var selectedCountry by remember { mutableStateOf(PHONE_COUNTRIES[0]) }
 
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
@@ -120,9 +145,11 @@ fun PhoneOtpScreen(
                         PhoneEntryContent(
                             phoneNumber = phoneNumber,
                             onPhoneChange = { viewModel.updatePhoneNumber(it) },
-                            onSendOtp = { viewModel.sendOtp(phoneNumber) },
+                            onSendOtp = { viewModel.sendOtp("${selectedCountry.code}$phoneNumber") },
                             onBack = onBack,
                             isLoading = authState is UiState.Loading,
+                            selectedCountry = selectedCountry,
+                            onCountrySelect = { selectedCountry = it },
                         )
                     }
                     AuthScreenState.OTP -> {
@@ -134,6 +161,7 @@ fun PhoneOtpScreen(
                             onBack = { viewModel.navigateToPhone() },
                             resendTimer = resendTimer,
                             phoneNumber = phoneNumber,
+                            countryCode = selectedCountry.code,
                             isLoading = authState is UiState.Loading,
                         )
                     }
@@ -154,8 +182,11 @@ private fun PhoneEntryContent(
     onSendOtp: () -> Unit,
     onBack: () -> Unit,
     isLoading: Boolean,
+    selectedCountry: PhoneCountry,
+    onCountrySelect: (PhoneCountry) -> Unit,
 ) {
-    val isValid = phoneNumber.length == 10
+    val isValid = phoneNumber.length == selectedCountry.maxDigits
+    var showCountryPicker by remember { mutableStateOf(false) }
 
     Column(
         modifier = Modifier
@@ -201,7 +232,7 @@ private fun PhoneEntryContent(
             modifier = Modifier.padding(bottom = 6.dp),
         )
 
-        // Phone input with +91 prefix
+        // Phone input with country selector
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -216,12 +247,48 @@ private fun PhoneEntryContent(
                 .padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(
-                text = "\uD83C\uDDEE\uD83C\uDDF3 +91",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = TextDark,
-            )
+            // Country selector
+            Box {
+                Row(
+                    modifier = Modifier
+                        .clickable { showCountryPicker = true },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = "${selectedCountry.flag} ${selectedCountry.code}",
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = TextDark,
+                    )
+                    Spacer(modifier = Modifier.width(2.dp))
+                    Text(
+                        text = "\u25BE",
+                        fontSize = 12.sp,
+                        color = TextSubtle,
+                    )
+                }
+                DropdownMenu(
+                    expanded = showCountryPicker,
+                    onDismissRequest = { showCountryPicker = false },
+                ) {
+                    PHONE_COUNTRIES.forEach { country ->
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "${country.flag} ${country.code} - ${country.name}",
+                                    fontSize = 14.sp,
+                                    fontWeight = if (country == selectedCountry) FontWeight.Bold else FontWeight.Normal,
+                                    color = TextDark,
+                                )
+                            },
+                            onClick = {
+                                onCountrySelect(country)
+                                showCountryPicker = false
+                            },
+                        )
+                    }
+                }
+            }
             Spacer(modifier = Modifier.width(10.dp))
             Box(
                 modifier = Modifier
@@ -233,7 +300,7 @@ private fun PhoneEntryContent(
             BasicTextField(
                 value = phoneNumber,
                 onValueChange = { value ->
-                    if (value.length <= 10 && value.all { it.isDigit() }) {
+                    if (value.length <= selectedCountry.maxDigits && value.all { it.isDigit() }) {
                         onPhoneChange(value)
                     }
                 },
@@ -250,7 +317,7 @@ private fun PhoneEntryContent(
                     Box {
                         if (phoneNumber.isEmpty()) {
                             Text(
-                                text = "98765 43210",
+                                text = "Enter phone number",
                                 color = TextMuted,
                                 fontSize = 16.sp,
                                 letterSpacing = 1.5.sp,
@@ -290,6 +357,7 @@ private fun OtpVerifyContent(
     onBack: () -> Unit,
     resendTimer: Int,
     phoneNumber: String,
+    countryCode: String,
     isLoading: Boolean,
 ) {
     val focusRequester = remember { FocusRequester() }
@@ -332,7 +400,7 @@ private fun OtpVerifyContent(
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = "Sent to +91 $phoneNumber",
+            text = "Sent to $countryCode $phoneNumber",
             fontSize = 13.sp,
             color = TextMuted,
         )

@@ -11,7 +11,8 @@ data class QuizResult(
     val levelChanged: Boolean,
     val rankGlobal: Int,
     val isReplay: Boolean,
-    val nextQuizId: String? = null
+    val nextQuizId: String? = null,
+    val iqScore: Int? = null
 ) {
     val accuracyPct: Int get() = if (totalQuestions > 0) (score * 100) / totalQuestions else 0
     val starRating: Int get() = when {

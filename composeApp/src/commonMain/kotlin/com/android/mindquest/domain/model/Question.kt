@@ -19,7 +19,8 @@ data class Question(
 enum class QuestionType {
     MULTIPLE_CHOICE, TRUE_FALSE, ORDERING, MATCH, FILL_BLANK,
     SELECT_WORD, MATRIX, GRID_PATTERN, STATEMENT_REASON,
-    TABLE_DATA, MEMORY, VISUAL_SINGLE_CHOICE;
+    TABLE_DATA, MEMORY, VISUAL_SINGLE_CHOICE,
+    GRID_CELL_SELECT, GRID_PATTERN_BOOLEAN, SEQUENCE_TAP;
 
     companion object {
         fun fromString(value: String): QuestionType = when (value.lowercase()) {
@@ -35,6 +36,9 @@ enum class QuestionType {
             "table_data" -> TABLE_DATA
             "memory" -> MEMORY
             "visual_single_choice" -> VISUAL_SINGLE_CHOICE
+            "grid_cell_select" -> GRID_CELL_SELECT
+            "grid_pattern_boolean" -> GRID_PATTERN_BOOLEAN
+            "sequence_tap" -> SEQUENCE_TAP
             else -> MULTIPLE_CHOICE
         }
     }

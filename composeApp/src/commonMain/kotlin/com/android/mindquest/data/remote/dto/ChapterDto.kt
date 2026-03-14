@@ -50,6 +50,10 @@ data class QuizDto(
     @SerialName("sort_order") val sortOrder: Int = 0,
     @SerialName("best_score") val bestScore: Int? = null,
     @SerialName("attempt_count") val attemptCount: Int = 0,
+    @SerialName("cooldown_hours") val cooldownHours: Int? = null,
+    @SerialName("last_attempt_at") val lastAttemptAt: String? = null,
+    @SerialName("is_locked") val isLocked: Boolean = false,
+    @SerialName("unlocks_at") val unlocksAt: String? = null,
     val questions: List<QuestionDto> = emptyList()
 )
 

@@ -20,12 +20,16 @@ import com.android.mindquest.presentation.profile.ProfileScreen
 import com.android.mindquest.presentation.profile.ProfileViewModel
 import com.android.mindquest.presentation.stats.StatsScreen
 import com.android.mindquest.presentation.stats.StatsViewModel
+import com.android.mindquest.core.session.SessionProvider
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun MainScreen(
     navController: NavHostController,
 ) {
+    val sessionProvider = koinInject<SessionProvider>()
+    val userId = sessionProvider.userId
     var currentTab by rememberSaveable { mutableStateOf(NavRoutes.HOME) }
 
     Scaffold(
@@ -65,19 +69,21 @@ fun MainScreen(
 
                 NavRoutes.LEADERBOARD -> {
                     val viewModel = koinViewModel<LeaderboardViewModel>()
-                    LeaderboardScreen(viewModel = viewModel)
+                    LeaderboardScreen(viewModel = viewModel, userId = userId)
                 }
 
                 NavRoutes.STATS -> {
                     val viewModel = koinViewModel<StatsViewModel>()
-                    StatsScreen(viewModel = viewModel)
+                    StatsScreen(viewModel = viewModel, userId = userId)
                 }
 
                 NavRoutes.PROFILE -> {
                     val viewModel = koinViewModel<ProfileViewModel>()
                     ProfileScreen(
                         viewModel = viewModel,
+                        userId = userId,
                         onSignOut = {
+                            viewModel.signOut()
                             navController.navigate(NavRoutes.AUTH) {
                                 popUpTo(0) { inclusive = true }
                             }

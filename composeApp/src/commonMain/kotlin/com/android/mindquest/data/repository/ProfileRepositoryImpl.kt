@@ -1,7 +1,10 @@
 package com.android.mindquest.data.repository
 
 import com.android.mindquest.core.constants.AppConstants
+import com.android.mindquest.core.util.AppLogger
+import com.android.mindquest.core.util.ErrorMapper
 import com.android.mindquest.core.util.Resource
+import com.android.mindquest.core.util.withRetry
 import com.android.mindquest.data.mapper.toDomain
 import com.android.mindquest.data.mock.MockDataSource
 import com.android.mindquest.data.remote.ApiService
@@ -19,12 +22,13 @@ class ProfileRepositoryImpl(
             if (AppConstants.USE_MOCK_DATA) {
                 Resource.Success(MockDataSource.mockProfile())
             } else {
-                val response = apiService.getProfile(userId)
+                val response = withRetry { apiService.getProfile(userId) }
                 Resource.Success(response.toDomain())
             }
         } catch (e: Exception) {
+            AppLogger.e("ProfileRepo", "load profile failed", e)
             Resource.Error(
-                message = e.message ?: "Failed to load profile",
+                message = ErrorMapper.toUserMessage(e),
                 throwable = e
             )
         }
@@ -51,8 +55,9 @@ class ProfileRepositoryImpl(
                 Resource.Success(Unit)
             }
         } catch (e: Exception) {
+            AppLogger.e("ProfileRepo", "update profile failed", e)
             Resource.Error(
-                message = e.message ?: "Failed to update profile",
+                message = ErrorMapper.toUserMessage(e),
                 throwable = e
             )
         }

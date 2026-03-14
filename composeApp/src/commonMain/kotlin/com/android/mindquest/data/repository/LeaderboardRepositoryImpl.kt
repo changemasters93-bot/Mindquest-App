@@ -1,7 +1,10 @@
 package com.android.mindquest.data.repository
 
 import com.android.mindquest.core.constants.AppConstants
+import com.android.mindquest.core.util.AppLogger
+import com.android.mindquest.core.util.ErrorMapper
 import com.android.mindquest.core.util.Resource
+import com.android.mindquest.core.util.withRetry
 import com.android.mindquest.data.mapper.toDomain
 import com.android.mindquest.data.mock.MockDataSource
 import com.android.mindquest.data.remote.ApiService
@@ -25,12 +28,13 @@ class LeaderboardRepositoryImpl(
                 Resource.Success(MockDataSource.mockLeaderboard())
             } else {
                 val filterStr = filter.name.lowercase()
-                val response = apiService.getLeaderboard(userId, filterStr, filterId, limit, offset)
+                val response = withRetry { apiService.getLeaderboard(userId, filterStr, filterId, limit, offset) }
                 Resource.Success(response.toDomain())
             }
         } catch (e: Exception) {
+            AppLogger.e("LeaderboardRepo", "load leaderboard failed", e)
             Resource.Error(
-                message = e.message ?: "Failed to load leaderboard",
+                message = ErrorMapper.toUserMessage(e),
                 throwable = e
             )
         }

@@ -35,6 +35,14 @@ data class TournamentEntry(
     val certificateId: String? = null
 )
 
+/**
+ * Result of starting a tournament — bundles the entry with tournament quiz questions.
+ */
+data class TournamentStartResult(
+    val entry: TournamentEntry,
+    val quiz: Quiz,
+)
+
 enum class TournamentEntryStatus {
     NOT_STARTED, IN_PROGRESS, COMPLETED, AUTO_SUBMITTED;
 

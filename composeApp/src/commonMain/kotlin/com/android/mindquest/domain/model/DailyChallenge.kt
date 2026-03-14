@@ -8,5 +8,7 @@ data class DailyChallenge(
     val timeInMinutes: Int,
     val moduleId: String,
     val chapterId: String,
-    val isDone: Boolean = false
+    val isDone: Boolean = false,
+    val moduleColor: String = "",
+    val moduleEmoji: String = "",
 )

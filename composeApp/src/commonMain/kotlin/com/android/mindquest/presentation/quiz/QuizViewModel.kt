@@ -2,6 +2,7 @@ package com.android.mindquest.presentation.quiz
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.NudgeHintType
@@ -15,15 +16,21 @@ import com.android.mindquest.domain.model.QuizConfig
 import com.android.mindquest.domain.model.QuizResult
 import com.android.mindquest.domain.model.QuizSubmitPayload
 import com.android.mindquest.domain.model.SubmissionMode
+import com.android.mindquest.domain.usecase.GetQuizWithQuestionsUseCase
 import com.android.mindquest.domain.usecase.SubmitQuizAttemptUseCase
 import com.android.mindquest.domain.usecase.SubmitSingleAnswerUseCase
 import com.android.mindquest.domain.usecase.SubmitTournamentUseCase
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
 import kotlin.uuid.ExperimentalUuidApi
 import kotlin.uuid.Uuid
@@ -46,6 +53,7 @@ data class QuizPlayState(
     val matchedPairs: Map<String, String> = emptyMap(),
     val selectedMatchLeft: String? = null,
     val selectedWordIds: Set<String> = emptySet(),
+    val sequenceTapIds: List<String> = emptyList(),
 ) {
     fun hasAnswer(): Boolean {
         val q = currentQuestion ?: return false
@@ -54,6 +62,7 @@ data class QuizPlayState(
             QuestionType.ORDERING -> orderedOptionIds.isNotEmpty()
             QuestionType.MATCH -> matchedPairs.size == (q.matchPairs?.size ?: 0)
             QuestionType.SELECT_WORD -> selectedWordIds.isNotEmpty()
+            QuestionType.SEQUENCE_TAP -> sequenceTapIds.size == q.options.size
             else -> selectedOptionId != null
         }
     }
@@ -79,7 +88,13 @@ class QuizViewModel(
     private val submitQuizAttempt: SubmitQuizAttemptUseCase,
     private val submitTournament: SubmitTournamentUseCase,
     private val submitSingleAnswer: SubmitSingleAnswerUseCase,
+    private val getQuizWithQuestions: GetQuizWithQuestionsUseCase,
+    private val quizStateManager: QuizStateManager,
 ) : ViewModel() {
+
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        AppLogger.e("QuizViewModel", "Unhandled coroutine exception", throwable as? Exception)
+    }
 
     private val _quizState = MutableStateFlow(QuizPlayState())
     val quizState: StateFlow<QuizPlayState> = _quizState.asStateFlow()
@@ -113,6 +128,11 @@ class QuizViewModel(
     private var startTimeMs: Long = 0L
     private var questionStartMs: Long = 0L
 
+    /** Mutex-based debounce guard: prevents double-tap on confirmAnswer(). */
+    private val confirmMutex = Mutex()
+    /** Cached submission data for retry on failure. */
+    private var pendingSubmissionTimeTaken: Int = 0
+
     // ── Actions ──────────────────────────────────────────────────────────
 
     /**
@@ -138,13 +158,42 @@ class QuizViewModel(
     /**
      * Start quiz from [QuizSessionHolder] (called via LaunchedEffect on screen entry).
      * Reads the quiz data AND the [QuizConfig] from the session holder.
+     *
+     * If [QuizSessionHolder.currentQuiz] has questions, starts immediately.
+     * Otherwise (daily challenge, IQ test), loads the quiz from the API first.
+     *
      * Guard: does nothing if quiz is already in progress or finished.
      */
     fun startFromSession(userId: String) {
         if (_questions.isNotEmpty()) return
-        val quiz = QuizSessionHolder.currentQuiz ?: return
         this._config = QuizSessionHolder.config ?: QuizConfig.module()
-        startQuiz(quiz, userId)
+
+        val quiz = QuizSessionHolder.currentQuiz
+        if (quiz != null && quiz.questions.isNotEmpty()) {
+            // Quiz already has questions (module quiz from chapter list)
+            startQuiz(quiz, userId)
+        } else {
+            // Need to load quiz from API (daily challenge, IQ test)
+            val qId = quiz?.id ?: QuizSessionHolder.quizId ?: return
+            viewModelScope.launch(exceptionHandler) {
+                _resultState.value = UiState.Loading
+                when (val result = getQuizWithQuestions(qId, userId)) {
+                    is Resource.Success -> {
+                        val loaded = result.data
+                        if (loaded.isLocked) {
+                            _resultState.value = UiState.Error("This quiz is on cooldown. Try again later.")
+                        } else {
+                            QuizSessionHolder.currentQuiz = loaded
+                            startQuiz(loaded, userId)
+                        }
+                    }
+                    is Resource.Error -> {
+                        _resultState.value = UiState.Error(result.message)
+                    }
+                    is Resource.Loading -> { /* no-op */ }
+                }
+            }
+        }
     }
 
     fun selectOption(optionId: String) {
@@ -189,6 +238,19 @@ class QuizViewModel(
         _quizState.value = _quizState.value.copy(selectedWordIds = current)
     }
 
+    fun tapSequenceItem(optionId: String) {
+        if (_quizState.value.isConfirmed) return
+        val current = _quizState.value.sequenceTapIds.toMutableList()
+        if (optionId in current) {
+            // Undo: remove this and all subsequent taps
+            val idx = current.indexOf(optionId)
+            current.subList(idx, current.size).clear()
+        } else {
+            current.add(optionId)
+        }
+        _quizState.value = _quizState.value.copy(sequenceTapIds = current)
+    }
+
     /**
      * Lock in the current answer.
      *
@@ -203,6 +265,9 @@ class QuizViewModel(
         if (state.isConfirmed) return
         val question = state.currentQuestion ?: return
         if (!state.hasAnswer()) return
+        // Mutex tryLock: if another coroutine is already confirming, drop this tap.
+        // This prevents the non-atomic check-then-act double-tap bug.
+        if (!confirmMutex.tryLock()) return
 
         val now = Clock.System.now().toEpochMilliseconds()
         val (isCorrect, selectedAnswer) = evaluateAnswer(question, state)
@@ -224,12 +289,17 @@ class QuizViewModel(
             isConfirmed = true,
             isCorrect = if (showFeedbackResult) isCorrect else null,
         )
+        // Safe to unlock: isConfirmed=true now guards against re-entry
+        confirmMutex.unlock()
+
+        // Persist quiz state for process death recovery
+        persistCurrentState()
 
         // Config: per-question submission for tournaments (non-blocking)
         if (_config.submissionMode == SubmissionMode.PER_QUESTION_NON_BLOCKING) {
             val entryId = _config.tournamentEntryId
             if (entryId != null) {
-                viewModelScope.launch {
+                viewModelScope.launch(exceptionHandler) {
                     submitSingleAnswer(entryId, answer) // fire-and-forget
                 }
             }
@@ -238,14 +308,14 @@ class QuizViewModel(
         // Config: feedback flash auto-advance (takes priority over autoAdvanceDelayMs)
         val flashMs = _config.feedbackFlashDurationMs
         if (flashMs != null) {
-            autoAdvanceJob = viewModelScope.launch {
+            autoAdvanceJob = viewModelScope.launch(exceptionHandler) {
                 delay(flashMs)
                 nextQuestion()
             }
         } else {
             // Config: auto-advance after delay (no flash)
             _config.autoAdvanceDelayMs?.let { delayMs ->
-                autoAdvanceJob = viewModelScope.launch {
+                autoAdvanceJob = viewModelScope.launch(exceptionHandler) {
                     delay(delayMs)
                     nextQuestion()
                 }
@@ -278,7 +348,7 @@ class QuizViewModel(
             currentQuestion = null,
         )
 
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             // Yield so Compose can process the null state (hides question UI),
             // then emit the actual next question on the following frame.
             delay(30)
@@ -298,6 +368,8 @@ class QuizViewModel(
         _isPaused.value = true
         timerJob?.cancel()
         autoAdvanceJob?.cancel()
+        // Persist state on pause in case process is killed while backgrounded
+        persistCurrentState()
     }
 
     /**
@@ -405,6 +477,16 @@ class QuizViewModel(
                 )
             }
 
+            QuestionType.SEQUENCE_TAP -> {
+                val correctOrder = question.options
+                    .sortedBy { it.correctPosition ?: it.displayOrder }
+                    .map { it.id }
+                Pair(
+                    state.sequenceTapIds == correctOrder,
+                    state.sequenceTapIds.joinToString(","),
+                )
+            }
+
             else -> {
                 val selected = state.selectedOptionId ?: ""
                 val correctOption = question.options.find { it.isCorrect }
@@ -413,11 +495,50 @@ class QuizViewModel(
         }
     }
 
+    // ── Process Death Recovery ─────────────────────────────────────────
+
+    /**
+     * Build a [PersistableQuizState] snapshot from the current in-memory state.
+     * Called after each confirmed answer and on pause to persist progress.
+     */
+    private fun buildPersistableState(): PersistableQuizState {
+        return PersistableQuizState(
+            quizId = quizId,
+            userId = userId,
+            behaviorType = _config.behavior.name,
+            currentIndex = _quizState.value.currentIndex,
+            totalQuestions = _questions.size,
+            timeRemainingSeconds = _timeLeft.value,
+            startTimeMs = startTimeMs,
+            answers = _answers.map { answer ->
+                PersistableAnswer(
+                    questionId = answer.questionId,
+                    selected = answer.selected,
+                    isCorrect = answer.isCorrect,
+                    timeMs = answer.timeMs,
+                )
+            },
+            tournamentEntryId = _config.tournamentEntryId,
+            moduleColor = QuizSessionHolder.moduleColor,
+            moduleEmoji = QuizSessionHolder.moduleEmoji,
+            moduleTitle = QuizSessionHolder.moduleTitle,
+        )
+    }
+
+    /**
+     * Persist the current quiz state to disk.
+     * Called after each answer confirmation and on pause.
+     */
+    private fun persistCurrentState() {
+        if (quizId.isBlank() || _questions.isEmpty()) return
+        quizStateManager.saveState(buildPersistableState())
+    }
+
     // ── Timer ────────────────────────────────────────────────────────────
 
     private fun startTimer(seconds: Int) {
         timerJob?.cancel()
-        timerJob = viewModelScope.launch {
+        timerJob = viewModelScope.launch(exceptionHandler) {
             var remaining = seconds
             while (remaining > 0) {
                 delay(1000)
@@ -444,7 +565,7 @@ class QuizViewModel(
             if (_config.submissionMode == SubmissionMode.PER_QUESTION_NON_BLOCKING) {
                 val entryId = _config.tournamentEntryId
                 if (entryId != null) {
-                    viewModelScope.launch {
+                    viewModelScope.launch(exceptionHandler) {
                         submitSingleAnswer(entryId, answer)
                     }
                 }
@@ -477,35 +598,59 @@ class QuizViewModel(
         // Save completed data for review screen
         QuizSessionHolder.saveCompletedData(_questions, _answers.toList())
 
-        val now = Clock.System.now().toEpochMilliseconds()
-        val timeTaken = ((now - startTimeMs) / 1000).toInt()
+        // Clear persisted quiz state — quiz is complete, no recovery needed
+        quizStateManager.clearState()
 
-        viewModelScope.launch {
+        val now = Clock.System.now().toEpochMilliseconds()
+        pendingSubmissionTimeTaken = ((now - startTimeMs) / 1000).toInt()
+
+        performSubmission()
+    }
+
+    /**
+     * Retry a failed quiz submission.
+     * Called from the UI retry button when [resultState] is [UiState.Error].
+     */
+    fun retrySubmission() {
+        if (_resultState.value !is UiState.Error) return
+        performSubmission()
+    }
+
+    /**
+     * Perform the actual quiz submission. Used by both [finishQuiz] and [retrySubmission].
+     * Wrapped in [NonCancellable] to prevent coroutine cancellation from losing the attempt.
+     */
+    @OptIn(ExperimentalUuidApi::class)
+    private fun performSubmission() {
+        viewModelScope.launch(exceptionHandler) {
             _resultState.value = UiState.Loading
 
-            when (_config.behavior) {
-                QuizBehavior.MODULE, QuizBehavior.IQ_TEST -> {
-                    val idempotencyKey = Uuid.random().toString()
-                    val payload = QuizSubmitPayload(
-                        userId = userId,
-                        quizId = quizId,
-                        answers = _answers.toList(),
-                        timeTakenSecs = timeTaken,
-                        idempotencyKey = idempotencyKey,
-                    )
-                    when (val result = submitQuizAttempt(payload)) {
-                        is Resource.Success -> _resultState.value = UiState.Success(result.data)
-                        is Resource.Error -> _resultState.value = UiState.Error(result.message)
-                        is Resource.Loading -> { /* no-op */ }
+            // Use NonCancellable to ensure submission completes even if ViewModel is cleared
+            withContext(NonCancellable) {
+                when (_config.behavior) {
+                    QuizBehavior.MODULE, QuizBehavior.IQ_TEST -> {
+                        val idempotencyKey = Uuid.random().toString()
+                        val payload = QuizSubmitPayload(
+                            userId = userId,
+                            quizId = quizId,
+                            answers = _answers.toList(),
+                            timeTakenSecs = pendingSubmissionTimeTaken,
+                            idempotencyKey = idempotencyKey,
+                        )
+                        when (val result = submitQuizAttempt(payload)) {
+                            is Resource.Success -> _resultState.value = UiState.Success(result.data)
+                            is Resource.Error -> _resultState.value = UiState.Error(result.message)
+                            is Resource.Loading -> { /* no-op */ }
+                        }
                     }
-                }
 
-                QuizBehavior.TOURNAMENT -> {
-                    val entryId = _config.tournamentEntryId ?: return@launch
-                    when (val result = submitTournament(entryId, _answers.toList(), timeTaken)) {
-                        is Resource.Success -> _resultState.value = UiState.Success(result.data)
-                        is Resource.Error -> _resultState.value = UiState.Error(result.message)
-                        is Resource.Loading -> { /* no-op */ }
+                    QuizBehavior.TOURNAMENT -> {
+                        val entryId = _config.tournamentEntryId ?: return@withContext
+                        when (val result = submitTournament(entryId, _answers.toList(), pendingSubmissionTimeTaken)) {
+                            is Resource.Success -> _resultState.value = UiState.Success(result.data)
+                            is Resource.Error -> _resultState.value = UiState.Error(result.message)
+                            is Resource.Loading -> { /* no-op */ }
+                        }
                     }
                 }
             }

@@ -29,13 +29,18 @@ data class UserStatsDto(
     @SerialName("quizzes_completed") val quizzesCompleted: Int = 0,
     @SerialName("accuracy_pct") val accuracyPct: Double = 0.0,
     @SerialName("tournaments_played") val tournamentsPlayed: Int = 0,
-    @SerialName("best_tournament_rank") val bestTournamentRank: Int? = null
+    @SerialName("best_tournament_rank") val bestTournamentRank: Int? = null,
+    @SerialName("iq_best_score") val iqBestScore: Int? = null,
+    @SerialName("last_iq_attempt_at") val lastIqAttemptAt: String? = null,
+    @SerialName("iq_cooldown_hours") val iqCooldownHours: Int? = null,
+    @SerialName("iq_quiz_id") val iqQuizId: String? = null
 )
 
 @Serializable
 data class ModuleWithProgressDto(
     val id: String,
     val title: String,
+    val subtitle: String? = null,
     val emoji: String,
     @SerialName("accent_color") val accentColor: String,
     @SerialName("sort_order") val sortOrder: Int,
@@ -47,7 +52,10 @@ data class ModuleProgressDto(
     @SerialName("current_chapter_id") val currentChapterId: String? = null,
     @SerialName("current_quiz_id") val currentQuizId: String? = null,
     @SerialName("best_score_pct") val bestScorePct: Int? = null,
-    @SerialName("is_completed") val isCompleted: Boolean = false
+    @SerialName("is_completed") val isCompleted: Boolean = false,
+    @SerialName("completed_chapters") val completedChapters: Int = 0,
+    @SerialName("total_chapters") val totalChapters: Int = 0,
+    @SerialName("total_xp_earned") val totalXpEarned: Long = 0,
 )
 
 @Serializable

@@ -2,6 +2,7 @@ package com.android.mindquest.presentation.home
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.InfiniteTransition
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
@@ -34,6 +35,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
@@ -44,6 +46,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.drawscope.DrawScope
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -69,7 +73,9 @@ fun HeroBanner(
     var dropdownExpanded by remember { mutableStateOf(false) }
     var selectedChallenge by remember { mutableStateOf<DailyChallenge?>(null) }
 
+    // Pick the first incomplete challenge, or the first one if all done (for review)
     val defaultChallenge = dailyChallenges.firstOrNull { !it.isDone }
+        ?: dailyChallenges.firstOrNull()
     val activeChallenge = selectedChallenge ?: defaultChallenge
 
     val starAlpha by infiniteTransition.animateFloat(
@@ -153,6 +159,16 @@ fun HeroBanner(
             drawCircle(dotColor, 5f, Offset(size.width * 0.6f, size.height * 0.12f - dotOffset))
         }
 
+        // Celebration particles when all missions are done
+        if (allCompleted) {
+            CelebrationOverlay(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(240.dp),
+                transition = infiniteTransition,
+            )
+        }
+
         // Golden glow orb
         Box(
             modifier = Modifier
@@ -194,9 +210,9 @@ fun HeroBanner(
             // Mission label
             Text(
                 text = when {
-                    allCompleted -> "\uD83C\uDF89 Mission Complete"
-                    inProgress -> "\uD83C\uDFAF Today's Mission"
-                    else -> "\uD83C\uDFAF Today's Mission"
+                    allCompleted -> "\uD83C\uDF89 DAILY MISSIONS COMPLETE"
+                    inProgress -> "\uD83C\uDFAF DAILY MISSIONS"
+                    else -> "\uD83C\uDFAF DAILY MISSIONS"
                 },
                 fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
@@ -209,7 +225,7 @@ fun HeroBanner(
             // ── Title — varies by state ──────────────────────────────
             Text(
                 text = when {
-                    allCompleted -> "All Missions\nCompleted!"
+                    allCompleted -> "Daily Challenges\nCompleted! \uD83C\uDF1F"
                     inProgress -> "Keep Going,\nYou're Doing Great!"
                     else -> "Complete Daily\nChallenges!"
                 },
@@ -266,34 +282,94 @@ fun HeroBanner(
             // ── CTA row — varies by state ────────────────────────────
             when {
                 allCompleted -> {
-                    // Completed state: celebratory CTA
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .shadow(6.dp, RoundedCornerShape(50))
-                                .clip(RoundedCornerShape(50))
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(Color(0xFF6EE7B7), Color(0xFF34D399)),
-                                    ),
-                                )
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = { onStartChallenge(null) },
-                                )
-                                .padding(horizontal = 22.dp, vertical = 10.dp),
+                    // Completed state: show dropdown toggle to view attempted quizzes
+                    if (dailyChallenges.isNotEmpty()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
-                            Text(
-                                text = "\uD83C\uDF1F Come Back Tomorrow",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF065F46),
-                            )
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(50))
+                                    .background(Color.White.copy(alpha = 0.12f))
+                                    .border(
+                                        1.dp,
+                                        Color(0xFF6EE7B7).copy(alpha = 0.3f),
+                                        RoundedCornerShape(50),
+                                    )
+                                    .clickable { dropdownExpanded = !dropdownExpanded }
+                                    .padding(horizontal = 16.dp, vertical = 9.dp),
+                            ) {
+                                Text(
+                                    text = if (dropdownExpanded) "\u2714 Today's Quizzes \u25B4" else "\u2714 Today's Quizzes \u25BE",
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = Color(0xFF6EE7B7),
+                                )
+                            }
+                        }
+
+                        // Dropdown showing all completed quizzes
+                        AnimatedVisibility(
+                            visible = dropdownExpanded,
+                            enter = expandVertically(),
+                            exit = shrinkVertically(),
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 12.dp),
+                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                            ) {
+                                dailyChallenges.forEach { challenge ->
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clip(RoundedCornerShape(14.dp))
+                                            .background(Color.White.copy(alpha = 0.08f))
+                                            .border(
+                                                1.dp,
+                                                Color(0xFF6EE7B7).copy(alpha = 0.15f),
+                                                RoundedCornerShape(14.dp),
+                                            )
+                                            .padding(horizontal = 14.dp, vertical = 10.dp),
+                                        verticalAlignment = Alignment.CenterVertically,
+                                    ) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(8.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF22C55E)),
+                                        )
+
+                                        Spacer(modifier = Modifier.width(10.dp))
+
+                                        Column(modifier = Modifier.weight(1f)) {
+                                            Text(
+                                                text = challenge.title,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = Color.White.copy(alpha = 0.7f),
+                                                maxLines = 1,
+                                                overflow = TextOverflow.Ellipsis,
+                                            )
+                                            Text(
+                                                text = "${challenge.questionCount} Qs \u00B7 ${challenge.timeInMinutes} min",
+                                                fontSize = 10.sp,
+                                                color = Color.White.copy(alpha = 0.3f),
+                                            )
+                                        }
+
+                                        Text(
+                                            text = "\u2714 Done",
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color(0xFF22C55E).copy(alpha = 0.7f),
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -305,29 +381,32 @@ fun HeroBanner(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(10.dp),
                     ) {
-                        // Golden Start Challenge button
-                        Box(
-                            modifier = Modifier
-                                .shadow(6.dp, RoundedCornerShape(50))
-                                .clip(RoundedCornerShape(50))
-                                .background(
-                                    Brush.linearGradient(
-                                        listOf(GoldGradientStart, GoldGradientEnd),
-                                    ),
+                        // Golden Start Challenge button — only when there's a challenge to start
+                        if (activeChallenge != null) {
+                            Box(
+                                modifier = Modifier
+                                    .semantics { contentDescription = "Start daily challenge" }
+                                    .shadow(6.dp, RoundedCornerShape(50))
+                                    .clip(RoundedCornerShape(50))
+                                    .background(
+                                        Brush.linearGradient(
+                                            listOf(GoldGradientStart, GoldGradientEnd),
+                                        ),
+                                    )
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = { onStartChallenge(activeChallenge) },
+                                    )
+                                    .padding(horizontal = 22.dp, vertical = 10.dp),
+                            ) {
+                                Text(
+                                    text = "\uD83D\uDE80 Start Challenge",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color(0xFF78350F),
                                 )
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null,
-                                    onClick = { onStartChallenge(activeChallenge) },
-                                )
-                                .padding(horizontal = 22.dp, vertical = 10.dp),
-                        ) {
-                            Text(
-                                text = "\uD83D\uDE80 Start Challenge",
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF78350F),
-                            )
+                            }
                         }
 
                         // Select quiz dropdown toggle
@@ -448,6 +527,91 @@ fun HeroBanner(
                     }
                 }
             }
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// CELEBRATION OVERLAY — animated emoji particles for "all done" state
+// ═══════════════════════════════════════════════════════════════════
+
+private data class ParticleSpec(
+    val emoji: String,
+    val xBias: Float, // 0..1 horizontal position
+    val yBias: Float, // 0..1 vertical position
+)
+
+private val celebrationParticles = listOf(
+    ParticleSpec("\u2B50", 0.08f, 0.2f),        // star
+    ParticleSpec("\uD83C\uDF1F", 0.28f, 0.1f),  // glowing star
+    ParticleSpec("\uD83C\uDF89", 0.52f, 0.28f),  // party popper
+    ParticleSpec("\u2728", 0.72f, 0.12f),         // sparkles
+    ParticleSpec("\uD83C\uDF8A", 0.88f, 0.22f),  // confetti ball
+    ParticleSpec("\uD83C\uDFC6", 0.42f, 0.65f),  // trophy
+    ParticleSpec("\uD83D\uDCAB", 0.15f, 0.55f),  // dizzy star
+    ParticleSpec("\uD83C\uDF1F", 0.78f, 0.6f),   // glowing star
+)
+
+@Composable
+private fun CelebrationOverlay(
+    modifier: Modifier = Modifier,
+    transition: InfiniteTransition,
+) {
+    Box(modifier = modifier) {
+        celebrationParticles.forEachIndexed { index, particle ->
+            val yOffset by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = -16f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(
+                        durationMillis = 1500 + index * 300,
+                        easing = FastOutSlowInEasing,
+                    ),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+                label = "celebration_y_$index",
+            )
+
+            val scale by transition.animateFloat(
+                initialValue = 0.7f,
+                targetValue = 1.2f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(
+                        durationMillis = 2000 + index * 200,
+                        easing = FastOutSlowInEasing,
+                    ),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+                label = "celebration_scale_$index",
+            )
+
+            val alpha by transition.animateFloat(
+                initialValue = 0.4f,
+                targetValue = 1f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 1800 + index * 250),
+                    repeatMode = RepeatMode.Reverse,
+                ),
+                label = "celebration_alpha_$index",
+            )
+
+            Text(
+                text = particle.emoji,
+                fontSize = 20.sp,
+                modifier = Modifier
+                    .align(
+                        BiasAlignment(
+                            horizontalBias = particle.xBias * 2 - 1,
+                            verticalBias = particle.yBias * 2 - 1,
+                        ),
+                    )
+                    .offset(y = yOffset.dp)
+                    .graphicsLayer {
+                        scaleX = scale
+                        scaleY = scale
+                        this.alpha = alpha
+                    },
+            )
         }
     }
 }

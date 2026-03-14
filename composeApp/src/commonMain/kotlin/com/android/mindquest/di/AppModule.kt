@@ -1,7 +1,9 @@
 package com.android.mindquest.di
 
+import com.android.mindquest.cache.OfflineCacheManager
 import com.android.mindquest.core.constants.AppConstants
 import com.android.mindquest.core.network.SupabaseClientProvider
+import com.android.mindquest.core.session.SessionProvider
 import com.android.mindquest.data.remote.ApiService
 import com.android.mindquest.data.repository.AuthRepositoryImpl
 import com.android.mindquest.data.repository.ChapterRepositoryImpl
@@ -23,18 +25,22 @@ import com.android.mindquest.domain.repository.StatsRepository
 import com.android.mindquest.domain.repository.TournamentRepository
 import com.android.mindquest.domain.usecase.GetActiveTournamentUseCase
 import com.android.mindquest.domain.usecase.GetChapterQuizzesUseCase
-import com.android.mindquest.domain.usecase.GetDailyChallengesUseCase
+import com.android.mindquest.domain.usecase.GenerateDailyChallengesUseCase
 import com.android.mindquest.domain.usecase.GetDashboardUseCase
 import com.android.mindquest.domain.usecase.GetLeaderboardUseCase
 import com.android.mindquest.domain.usecase.GetModuleFullUseCase
 import com.android.mindquest.domain.usecase.GetProfileUseCase
+import com.android.mindquest.domain.usecase.GetQuizWithQuestionsUseCase
 import com.android.mindquest.domain.usecase.GetReferenceDataUseCase
+import com.android.mindquest.domain.usecase.GetTournamentEntryUseCase
 import com.android.mindquest.domain.usecase.GetUserStatsUseCase
 import com.android.mindquest.domain.usecase.StartTournamentUseCase
 import com.android.mindquest.domain.usecase.SubmitQuizAttemptUseCase
 import com.android.mindquest.domain.usecase.SubmitSingleAnswerUseCase
 import com.android.mindquest.domain.usecase.SubmitTournamentUseCase
 import com.android.mindquest.domain.usecase.UpdateProfileUseCase
+import com.android.mindquest.core.prefs.SessionPrefs
+import com.android.mindquest.presentation.quiz.QuizStateManager
 import com.android.mindquest.presentation.auth.AuthViewModel
 import com.android.mindquest.presentation.chapters.ChaptersViewModel
 import com.android.mindquest.presentation.home.HomeViewModel
@@ -56,6 +62,18 @@ val appModule = module {
         )
     }
 
+    // ── Session preferences (lightweight key-value persistence) ────────
+    single { SessionPrefs() }
+
+    // ── Database / Offline Cache ─────────────────────────────────────
+    single { OfflineCacheManager(get()) }
+
+    // ── Quiz state manager (process death recovery) ──────────────────
+    single { QuizStateManager(get()) }
+
+    // ── Session provider (Supabase auth user ID) ────────────────────────
+    single { SessionProvider(get()) }
+
     // ── API service ─────────────────────────────────────────────────────
     single { ApiService(get()) }
 
@@ -72,15 +90,17 @@ val appModule = module {
 
     // ── Use cases ───────────────────────────────────────────────────────
     factory { GetDashboardUseCase(get()) }
-    factory { GetDailyChallengesUseCase(get()) }
+    factory { GenerateDailyChallengesUseCase(get(), get()) }
     factory { GetModuleFullUseCase(get()) }
     factory { GetChapterQuizzesUseCase(get()) }
     factory { SubmitQuizAttemptUseCase(get()) }
+    factory { GetQuizWithQuestionsUseCase(get()) }
     factory { GetLeaderboardUseCase(get()) }
     factory { GetUserStatsUseCase(get()) }
     factory { GetProfileUseCase(get()) }
     factory { UpdateProfileUseCase(get()) }
     factory { GetActiveTournamentUseCase(get()) }
+    factory { GetTournamentEntryUseCase(get()) }
     factory { StartTournamentUseCase(get()) }
     factory { SubmitTournamentUseCase(get()) }
     factory { SubmitSingleAnswerUseCase(get()) }

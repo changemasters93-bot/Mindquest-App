@@ -32,6 +32,8 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -44,12 +46,11 @@ private val IqGreen1 = Color(0xFF34D399)
 private val IqGreen2 = Color(0xFF10B981)
 private val IqGreenText = Color(0xFF064E3B)
 
-private const val IQ_COOLDOWN_DAYS = 7
-
 @Composable
 fun IqTestCard(
     onStartIqTest: () -> Unit,
     lastAttemptDateMillis: Long? = null,
+    cooldownHours: Int = 168,
     modifier: Modifier = Modifier,
 ) {
     val infiniteTransition = rememberInfiniteTransition(label = "iq_card")
@@ -63,9 +64,9 @@ fun IqTestCard(
         label = "medal_bob",
     )
 
-    // Calculate availability
+    // Calculate availability using configurable cooldown
     val nowMillis = Clock.System.now().toEpochMilliseconds()
-    val cooldownMs = IQ_COOLDOWN_DAYS.toLong() * 24 * 3600 * 1000
+    val cooldownMs = cooldownHours.toLong() * 3600 * 1000
     val isAvailable = lastAttemptDateMillis == null ||
         (nowMillis - lastAttemptDateMillis) >= cooldownMs
     val daysUntilAvailable = if (!isAvailable) {
@@ -76,6 +77,7 @@ fun IqTestCard(
 
     Box(
         modifier = modifier
+            .semantics { contentDescription = "Take IQ Test" }
             .fillMaxWidth()
             .shadow(8.dp, RoundedCornerShape(20.dp))
             .clip(RoundedCornerShape(20.dp))

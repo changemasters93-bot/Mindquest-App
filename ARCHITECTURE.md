@@ -11,6 +11,7 @@ Mindquest is a **Compose Multiplatform (KMP)** educational quiz application targ
 - Koin 4.0.0 (Dependency Injection)
 - Ktor 3.0.3 (HTTP client - used by Supabase SDK)
 - kotlinx-serialization (JSON)
+- SQLDelight 2.2.1 (Local cache infrastructure)
 
 ---
 
@@ -34,14 +35,19 @@ composeApp/src/
         util/
           Resource.kt                  # Success/Error/Loading (data layer)
           UiState.kt                   # Loading/Success/Error/Empty/Offline
+          RetryUtil.kt                 # withRetry exponential backoff
+          AppLogger.kt                 # Logging utility
+    sqldelight/                        # SQLDelight offline cache
+      com/android/mindquest/cache/
+        MindquestDatabase.sq           # 7 cache tables
       domain/                          # Pure Kotlin, no framework deps
-        model/                         # 15 domain models
+        model/                         # 16+ domain models
         repository/                    # 9 repository interfaces
-        usecase/                       # 14 use cases
+        usecase/                       # 17 use cases
       data/                            # Implementation layer
         remote/
           ApiService.kt               # Supabase RPC calls
-          dto/                         # 9 DTO classes
+          dto/                         # 18+ DTO classes
         mapper/DtoMappers.kt          # DTO -> Domain mappers
         mock/MockDataSource.kt        # Realistic mock data
         repository/                    # 9 repository implementations
@@ -51,7 +57,7 @@ composeApp/src/
           NavRoutes.kt                 # Route constants + helpers
           MindquestNavGraph.kt         # Root NavHost
           MainScreen.kt               # Tab host with bottom nav
-        components/                    # 10 reusable components
+        components/                    # 13+ reusable components
         auth/                          # AuthScreen, PhoneOtpScreen, etc.
         home/                          # HomeScreen, HeroBanner, SubjectCard
         chapters/                      # ChaptersScreen, QuizIntroScreen
@@ -72,7 +78,7 @@ composeApp/src/
       core/network/NetworkMonitor.ios.kt
 ```
 
-**Total: 117 source files** (115 Kotlin + 1 XML manifest + 1 Gradle config)
+**Total: 120+ source files** (Kotlin + 1 XML manifest + 1 SQLDelight schema + Gradle configs)
 
 ---
 
@@ -124,7 +130,7 @@ composeApp/src/
 |    -> If true: return MockDataSource data                 |
 |    -> If false: call ApiService -> DTO -> Mapper          |
 |                                                            |
-|  ApiService (14 Supabase RPCs via Postgrest)              |
+|  ApiService (17+ Supabase RPCs via Postgrest)              |
 |  DTOs (9 serializable classes)                            |
 |  DtoMappers (extension functions)                         |
 |  MockDataSource (realistic test data)                     |
@@ -137,7 +143,7 @@ composeApp/src/
 |                                                            |
 |  Supabase Backend                                         |
 |  - Auth: Google OAuth, Phone OTP, Anonymous               |
-|  - Postgrest: 14 RPC functions                            |
+|  - Postgrest: 17+ RPC functions                            |
 |  - Realtime: Tournament leaderboard subscriptions         |
 +----------------------------------------------------------+
 ```
@@ -226,6 +232,9 @@ This enables full UI development and testing without a live backend.
 - **ViewModels** use `MutableStateFlow` internally, expose `StateFlow`
 - **UiState<T>** sealed class: `Loading`, `Success<T>`, `Error(message)`, `Empty`, `Offline`
 - **Resource<T>** sealed class (data layer): `Success<T>`, `Error(message)`, `Loading<T>`
+- **Dark mode** system-aware via `isSystemInDarkTheme()` with light/dark color palettes
+- **withRetry** exponential backoff on all read repositories for transient failure resilience
+- **CoroutineExceptionHandler** on all 8 ViewModels to prevent coroutine cancellation cascades
 
 ### Dependency Injection
 - **Koin 4.0.0** with `viewModelOf(::ClassName)` for auto-wiring

@@ -2,16 +2,16 @@ package com.android.mindquest.presentation.tournament
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.android.mindquest.core.constants.AppConstants
+import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
 import com.android.mindquest.core.util.UiState
-import com.android.mindquest.data.mock.MockDataSource
 import com.android.mindquest.domain.model.Quiz
 import com.android.mindquest.domain.model.QuizAnswer
 import com.android.mindquest.domain.model.Tournament
 import com.android.mindquest.domain.model.TournamentEntry
 import com.android.mindquest.domain.model.TournamentEntryStatus
 import com.android.mindquest.domain.usecase.GetActiveTournamentUseCase
+import com.android.mindquest.domain.usecase.GetTournamentEntryUseCase
 import com.android.mindquest.domain.usecase.StartTournamentUseCase
 import com.android.mindquest.domain.usecase.SubmitTournamentUseCase
 import kotlinx.coroutines.Job
@@ -20,6 +20,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.launch
 
 data class TournamentPlayState(
@@ -47,8 +48,13 @@ data class TournamentOptionState(
 class TournamentViewModel(
     private val getActiveTournamentUseCase: GetActiveTournamentUseCase,
     private val startTournamentUseCase: StartTournamentUseCase,
-    private val submitTournamentUseCase: SubmitTournamentUseCase
+    private val submitTournamentUseCase: SubmitTournamentUseCase,
+    private val getTournamentEntryUseCase: GetTournamentEntryUseCase,
 ) : ViewModel() {
+
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+        AppLogger.e("TournamentViewModel", "Unhandled coroutine exception", throwable as? Exception)
+    }
 
     private val _tournamentState = MutableStateFlow<UiState<Tournament>>(UiState.Loading)
     val tournamentState: StateFlow<UiState<Tournament>> = _tournamentState.asStateFlow()
@@ -80,7 +86,7 @@ class TournamentViewModel(
 
     fun loadTournament(userId: String, gradeId: String = "default") {
         currentUserId = userId
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             _tournamentState.value = UiState.Loading
             when (val resource = getActiveTournamentUseCase(userId, gradeId)) {
                 is Resource.Success -> {
@@ -105,21 +111,18 @@ class TournamentViewModel(
         currentTournamentId = tournamentId
         answers.clear()
 
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             _entryState.value = UiState.Loading
             when (val resource = startTournamentUseCase(userId, tournamentId)) {
                 is Resource.Success -> {
-                    val entry = resource.data
+                    val startResult = resource.data
+                    val entry = startResult.entry
                     currentEntryId = entry.id
                     startTimeSeconds = entry.timeRemainingSeconds ?: 0
                     _entryState.value = UiState.Success(entry)
 
-                    // Build quiz from tournament questions for use with QuizPlayScreen
-                    if (AppConstants.USE_MOCK_DATA) {
-                        _tournamentQuiz.value = MockDataSource.mockTournamentQuiz()
-                    }
-                    // For real API: questions come from TournamentStartResponseDto
-                    // and would be mapped here (future implementation).
+                    // Quiz questions come from the start_tournament RPC response
+                    _tournamentQuiz.value = startResult.quiz
 
                     initializePlay(entry)
                     startTimer(entry.timeRemainingSeconds ?: 0)
@@ -207,7 +210,7 @@ class TournamentViewModel(
 
         // Auto-advance after 1.5s delay
         autoAdvanceJob?.cancel()
-        autoAdvanceJob = viewModelScope.launch {
+        autoAdvanceJob = viewModelScope.launch(exceptionHandler) {
             delay(1500L)
             if (!_isPaused.value) {
                 nextQuestion()
@@ -261,40 +264,44 @@ class TournamentViewModel(
         currentTournamentId = tournamentId
         answers.clear()
 
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             _entryState.value = UiState.Loading
-            if (AppConstants.USE_MOCK_DATA) {
-                val entry = MockDataSource.mockResumeEntry()
-                currentEntryId = entry.id
-                startTimeSeconds = entry.timeRemainingSeconds ?: 0
+            // Re-start returns the existing entry + questions from the API
+            when (val resource = startTournamentUseCase(userId, tournamentId)) {
+                is Resource.Success -> {
+                    val startResult = resource.data
+                    val entry = startResult.entry
+                    val fullQuiz = startResult.quiz
+                    currentEntryId = entry.id
+                    startTimeSeconds = entry.timeRemainingSeconds ?: 0
 
-                _entryState.value = UiState.Success(entry)
+                    _entryState.value = UiState.Success(entry)
 
-                // Build quiz with only the remaining (unanswered) questions
-                // and set timeLimitSeconds to the remaining time so QuizViewModel's
-                // timer starts from where the user left off.
-                val fullQuiz = MockDataSource.mockTournamentQuiz()
-                val remainingQuestions = fullQuiz.questions.drop(entry.questionsAnswered)
-                val resumeQuiz = fullQuiz.copy(
-                    questions = remainingQuestions,
-                    questionCount = remainingQuestions.size,
-                    timeLimitSeconds = entry.timeRemainingSeconds ?: fullQuiz.timeLimitSeconds,
-                )
-                _tournamentQuiz.value = resumeQuiz
-
-                // Set play state preserving existing progress
-                _playState.update {
-                    it.copy(
-                        currentQuestionIndex = 0,
-                        totalQuestions = fullQuiz.questionCount,
-                        questionsAnswered = entry.questionsAnswered,
-                        score = entry.score,
-                        isFinished = false,
+                    // Build quiz with only the remaining (unanswered) questions
+                    val remainingQuestions = fullQuiz.questions.drop(entry.questionsAnswered)
+                    val resumeQuiz = fullQuiz.copy(
+                        questions = remainingQuestions,
+                        questionCount = remainingQuestions.size,
+                        timeLimitSeconds = entry.timeRemainingSeconds ?: fullQuiz.timeLimitSeconds,
                     )
+                    _tournamentQuiz.value = resumeQuiz
+
+                    _playState.update {
+                        it.copy(
+                            currentQuestionIndex = 0,
+                            totalQuestions = fullQuiz.questionCount,
+                            questionsAnswered = entry.questionsAnswered,
+                            score = entry.score,
+                            isFinished = false,
+                        )
+                    }
+                    startTimer(entry.timeRemainingSeconds ?: 0)
                 }
-                startTimer(entry.timeRemainingSeconds ?: 0)
+                is Resource.Error -> {
+                    _entryState.value = UiState.Error(resource.message)
+                }
+                is Resource.Loading -> { /* no-op */ }
             }
-            // Real API: call repository.resumeEntry(entryId) → questions + remaining time
         }
     }
 
@@ -303,7 +310,7 @@ class TournamentViewModel(
      * Sets [entryState] and [playState] so [TournamentResultScreen] can render.
      */
     fun loadTournamentResult(userId: String, gradeId: String = "default") {
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             _tournamentState.value = UiState.Loading
             _entryState.value = UiState.Loading
             when (val resource = getActiveTournamentUseCase(userId, gradeId)) {
@@ -311,19 +318,30 @@ class TournamentViewModel(
                     val tournament = resource.data
                     if (tournament != null) {
                         _tournamentState.value = UiState.Success(tournament)
-                        if (AppConstants.USE_MOCK_DATA) {
-                            val entry = MockDataSource.mockCompletedTournamentEntry()
-                            _entryState.value = UiState.Success(entry)
-                            _playState.update {
-                                it.copy(
-                                    totalQuestions = tournament.questionCount,
-                                    questionsAnswered = entry.questionsAnswered,
-                                    score = entry.score,
-                                    isFinished = true,
-                                )
+
+                        // Fetch the user's entry for this tournament
+                        when (val entryResource = getTournamentEntryUseCase(userId, tournament.id)) {
+                            is Resource.Success -> {
+                                val entry = entryResource.data
+                                if (entry != null) {
+                                    _entryState.value = UiState.Success(entry)
+                                    _playState.update {
+                                        it.copy(
+                                            totalQuestions = tournament.questionCount,
+                                            questionsAnswered = entry.questionsAnswered,
+                                            score = entry.score,
+                                            isFinished = true,
+                                        )
+                                    }
+                                } else {
+                                    _entryState.value = UiState.Empty
+                                }
                             }
+                            is Resource.Error -> {
+                                _entryState.value = UiState.Error(entryResource.message)
+                            }
+                            is Resource.Loading -> { /* no-op */ }
                         }
-                        // Real API: call repository.getEntry(userId, tournamentId)
                     } else {
                         _tournamentState.value = UiState.Empty
                         _entryState.value = UiState.Empty
@@ -346,7 +364,7 @@ class TournamentViewModel(
 
         val timeTaken = startTimeSeconds - _timeLeft.value
 
-        viewModelScope.launch {
+        viewModelScope.launch(exceptionHandler) {
             when (val resource = submitTournamentUseCase(entryId, answers.toList(), timeTaken)) {
                 is Resource.Success -> {
                     _playState.update { it.copy(isFinished = true) }
@@ -362,7 +380,7 @@ class TournamentViewModel(
     private fun startTimer(seconds: Int) {
         _timeLeft.value = seconds
         timerJob?.cancel()
-        timerJob = viewModelScope.launch {
+        timerJob = viewModelScope.launch(exceptionHandler) {
             while (_timeLeft.value > 0) {
                 delay(1000L)
                 if (!_isPaused.value) {

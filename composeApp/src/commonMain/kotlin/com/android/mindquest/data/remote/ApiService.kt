@@ -13,6 +13,7 @@ import com.android.mindquest.data.remote.dto.QuizResultDto
 import com.android.mindquest.data.remote.dto.StatsResponseDto
 import com.android.mindquest.data.remote.dto.TournamentEntryDto
 import com.android.mindquest.data.remote.dto.TournamentInfoDto
+import com.android.mindquest.data.remote.dto.TournamentLeaderboardResponseDto
 import com.android.mindquest.data.remote.dto.TournamentStartResponseDto
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.postgrest.from
@@ -72,14 +73,41 @@ class ApiService(private val client: SupabaseClient) {
 
     // ── Quiz ─────────────────────────────────────────────────────────────
 
+    /** Load a single quiz with its questions by quiz ID (for IQ test, daily challenge). */
+    suspend fun getQuizWithQuestions(quizId: String, userId: String): QuizDto {
+        return client.postgrest.rpc(
+            function = "get_quiz_with_questions",
+            parameters = buildJsonObject {
+                put("p_quiz_id", quizId)
+                put("p_user_id", userId)
+            }
+        ).decodeAs()
+    }
+
     suspend fun submitQuizAttempt(payload: JsonObject): QuizResultDto {
         return client.postgrest.rpc(
             function = "submit_quiz_attempt",
-            parameters = buildJsonObject { put("payload", payload) }
+            parameters = buildJsonObject { put("p_payload", payload) }
         ).decodeAs()
     }
 
     // ── Tournament ───────────────────────────────────────────────────────
+
+    /** Read the user's tournament entry directly from the table (for result screen). */
+    suspend fun getTournamentEntry(userId: String, tournamentId: String): TournamentEntryDto? {
+        return try {
+            client.postgrest.from("tournament_entries")
+                .select {
+                    filter {
+                        eq("user_id", userId)
+                        eq("tournament_id", tournamentId)
+                    }
+                }
+                .decodeSingleOrNull()
+        } catch (_: Exception) {
+            null
+        }
+    }
 
     suspend fun getActiveTournament(userId: String, gradeId: String): TournamentInfoDto? {
         return try {
@@ -148,6 +176,25 @@ class ApiService(private val client: SupabaseClient) {
         )
     }
 
+    // ── Tournament Leaderboard ────────────────────────────────────────────
+
+    suspend fun getTournamentLeaderboard(
+        tournamentId: String,
+        userId: String,
+        limit: Int = 50,
+        offset: Int = 0
+    ): TournamentLeaderboardResponseDto {
+        return client.postgrest.rpc(
+            function = "get_tournament_leaderboard",
+            parameters = buildJsonObject {
+                put("p_tournament_id", tournamentId)
+                put("p_user_id", userId)
+                put("p_limit", limit)
+                put("p_offset", offset)
+            }
+        ).decodeAs()
+    }
+
     // ── Leaderboard ──────────────────────────────────────────────────────
 
     suspend fun getLeaderboard(
@@ -198,6 +245,17 @@ class ApiService(private val client: SupabaseClient) {
                 put("p_fields", fields)
             }
         )
+    }
+
+    // ── User row (direct table write — guide §2.2) ────────────────────────
+
+    /**
+     * Creates or updates the public.users row after a successful auth.
+     * This is the ONLY direct table write the app performs — every other
+     * mutation goes through an RPC.
+     */
+    suspend fun upsertUser(data: JsonObject) {
+        client.postgrest.from("users").upsert(data)
     }
 
     // ── Reference data (direct table reads) ──────────────────────────────

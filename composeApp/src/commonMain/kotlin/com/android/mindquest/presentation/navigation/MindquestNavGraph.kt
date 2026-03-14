@@ -4,9 +4,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -14,7 +19,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
-import com.android.mindquest.data.mock.MockDataSource
+import com.android.mindquest.core.constants.AppConstants
+import com.android.mindquest.core.session.SessionProvider
 import com.android.mindquest.domain.model.QuizBehavior
 import com.android.mindquest.domain.model.QuizConfig
 import com.android.mindquest.presentation.auth.AuthScreen
@@ -41,12 +47,16 @@ import com.android.mindquest.presentation.tournament.TournamentPauseScreen
 import com.android.mindquest.presentation.tournament.TournamentPlayScreen
 import com.android.mindquest.presentation.tournament.TournamentResultScreen
 import com.android.mindquest.presentation.tournament.TournamentViewModel
+import org.koin.compose.koinInject
 import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun MindquestNavGraph(
     navController: NavHostController = rememberNavController(),
 ) {
+    val sessionProvider = koinInject<SessionProvider>()
+    val userId = sessionProvider.userId
+
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
@@ -102,8 +112,60 @@ fun MindquestNavGraph(
             }
 
             // ── Main tabs ───────────────────────────────────────────────
-            composable(NavRoutes.HOME) {
+            composable(NavRoutes.HOME) { backStackEntry ->
                 val viewModel = koinViewModel<HomeViewModel>()
+
+                // ── Mark completed quiz as done locally ──────────────────
+                val completedQuizId = backStackEntry.savedStateHandle
+                    .getStateFlow("completedQuizId", "")
+                    .collectAsState()
+                LaunchedEffect(completedQuizId.value) {
+                    val qid = completedQuizId.value
+                    if (qid.isNotBlank()) {
+                        viewModel.markChallengeDone(qid)
+                        backStackEntry.savedStateHandle["completedQuizId"] = ""
+                    }
+                }
+
+                // ── Refresh dashboard when returning from quiz ───────────
+                val needsRefresh = backStackEntry.savedStateHandle
+                    .getStateFlow("needsRefresh", false)
+                    .collectAsState()
+                LaunchedEffect(needsRefresh.value) {
+                    if (needsRefresh.value) {
+                        viewModel.refreshAll()
+                        backStackEntry.savedStateHandle["needsRefresh"] = false
+                    }
+                }
+
+                // ── Lifecycle-aware fallback: catch pending signals on resume ─
+                // When returning from Chapters → HOME (chapters path),
+                // the above LaunchedEffects may not re-trigger because HOME's
+                // composable was STOPPED (not recomposed). This observer
+                // reliably fires on every ON_RESUME, catching any pending
+                // completedQuizId / needsRefresh that weren't consumed.
+                val lifecycleOwner = LocalLifecycleOwner.current
+                DisposableEffect(lifecycleOwner) {
+                    val observer = LifecycleEventObserver { _, event ->
+                        if (event == Lifecycle.Event.ON_RESUME) {
+                            val pendingQuizId = backStackEntry.savedStateHandle
+                                .get<String>("completedQuizId") ?: ""
+                            if (pendingQuizId.isNotBlank()) {
+                                viewModel.markChallengeDone(pendingQuizId)
+                                backStackEntry.savedStateHandle["completedQuizId"] = ""
+                            }
+                            val pendingRefresh = backStackEntry.savedStateHandle
+                                .get<Boolean>("needsRefresh") ?: false
+                            if (pendingRefresh) {
+                                viewModel.refreshAll()
+                                backStackEntry.savedStateHandle["needsRefresh"] = false
+                            }
+                        }
+                    }
+                    lifecycleOwner.lifecycle.addObserver(observer)
+                    onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+                }
+
                 HomeScreen(
                     viewModel = viewModel,
                     onNavigateToChapters = { module ->
@@ -118,17 +180,17 @@ fun MindquestNavGraph(
                     },
                     // ── Daily Challenge entry point ──────────────────────
                     onNavigateToDailyChallenge = { challenge ->
-                        val quiz = MockDataSource.mockDailyChallengeQuiz(challenge)
-                        val color = "4F46E5" // default accent for daily challenges
-                        QuizSessionHolder.selectQuiz(
-                            quiz = quiz,
+                        val color = challenge.moduleColor.ifEmpty { "4F46E5" }
+                        val emoji = challenge.moduleEmoji.ifEmpty { "\uD83C\uDFAF" }
+                        QuizSessionHolder.selectQuizById(
+                            quizId = challenge.quizId,
                             config = QuizConfig.module(
                                 moduleColor = color,
-                                moduleEmoji = "\uD83C\uDFAF",
+                                moduleEmoji = emoji,
                                 moduleTitle = challenge.title,
                             ),
                             moduleColor = color,
-                            moduleEmoji = "\uD83C\uDFAF",
+                            moduleEmoji = emoji,
                             moduleTitle = challenge.title,
                         )
                         navController.navigate(NavRoutes.quizPlay(color))
@@ -140,11 +202,10 @@ fun MindquestNavGraph(
                         navController.navigate(NavRoutes.TOURNAMENT_RESULT)
                     },
                     // ── IQ Test entry point ──────────────────────────────
-                    onNavigateToIqTest = {
-                        val quiz = MockDataSource.mockIqTestQuiz()
+                    onNavigateToIqTest = { quizId ->
                         val color = "7C3AED" // purple accent for IQ test
-                        QuizSessionHolder.selectQuiz(
-                            quiz = quiz,
+                        QuizSessionHolder.selectQuizById(
+                            quizId = quizId,
                             config = QuizConfig.iqTest(),
                             moduleColor = color,
                             moduleEmoji = "\uD83E\uDDE0",
@@ -164,19 +225,35 @@ fun MindquestNavGraph(
 
             composable(NavRoutes.LEADERBOARD) {
                 val viewModel = koinViewModel<LeaderboardViewModel>()
-                LeaderboardScreen(viewModel = viewModel)
+                LeaderboardScreen(viewModel = viewModel, userId = userId)
             }
 
             composable(NavRoutes.STATS) {
                 val viewModel = koinViewModel<StatsViewModel>()
-                StatsScreen(viewModel = viewModel)
+                StatsScreen(
+                    viewModel = viewModel,
+                    userId = userId,
+                    onStartIqTest = {
+                        val color = "7C3AED" // purple accent for IQ test
+                        QuizSessionHolder.selectQuizById(
+                            quizId = AppConstants.IQ_QUIZ_ID,
+                            config = QuizConfig.iqTest(),
+                            moduleColor = color,
+                            moduleEmoji = "\uD83E\uDDE0",
+                            moduleTitle = "IQ Challenge",
+                        )
+                        navController.navigate(NavRoutes.quizIntro(color))
+                    },
+                )
             }
 
             composable(NavRoutes.PROFILE) {
                 val viewModel = koinViewModel<ProfileViewModel>()
                 ProfileScreen(
                     viewModel = viewModel,
+                    userId = userId,
                     onSignOut = {
+                        viewModel.signOut()
                         navController.navigate(NavRoutes.LOGIN_JOURNEY) {
                             popUpTo(0) { inclusive = true }
                         }
@@ -200,12 +277,23 @@ fun MindquestNavGraph(
                 val moduleColor = entry.arguments?.getString(NavRoutes.ARG_MODULE_COLOR).orEmpty()
                 val viewModel = koinViewModel<ChaptersViewModel>()
 
+                // Refresh chapters when returning from quiz
+                val needsChapterRefresh = entry.savedStateHandle
+                    .getStateFlow("needsChapterRefresh", false)
+                    .collectAsState()
+                LaunchedEffect(needsChapterRefresh.value) {
+                    if (needsChapterRefresh.value) {
+                        viewModel.refreshModule()
+                        entry.savedStateHandle["needsChapterRefresh"] = false
+                    }
+                }
+
                 ChaptersScreen(
                     moduleId = moduleId,
                     moduleTitle = moduleTitle,
                     moduleEmoji = moduleEmoji,
                     moduleColor = moduleColor,
-                    userId = "",
+                    userId = userId,
                     onBack = { navController.popBackStack() },
                     onQuizSelect = { quiz ->
                         QuizSessionHolder.selectQuiz(
@@ -241,6 +329,7 @@ fun MindquestNavGraph(
                         }
                     },
                     onBack = { navController.popBackStack() },
+                    userId = userId,
                 )
             }
 
@@ -255,7 +344,7 @@ fun MindquestNavGraph(
 
                 // Auto-start quiz from session holder
                 LaunchedEffect(Unit) {
-                    viewModel.startFromSession(userId = "")
+                    viewModel.startFromSession(userId = userId)
                 }
 
                 // Route onFinish based on quiz behavior
@@ -265,6 +354,14 @@ fun MindquestNavGraph(
                     viewModel = viewModel,
                     moduleColor = moduleColor,
                     onFinish = {
+                        // Signal HOME: mark quiz done locally + refresh dashboard
+                        val homeEntry = navController.getBackStackEntry(NavRoutes.HOME)
+                        homeEntry.savedStateHandle["completedQuizId"] =
+                            QuizSessionHolder.quizId
+                                ?: QuizSessionHolder.currentQuiz?.id
+                                ?: ""
+                        homeEntry.savedStateHandle["needsRefresh"] = true
+
                         when (config?.behavior) {
                             QuizBehavior.TOURNAMENT -> {
                                 navController.navigate(NavRoutes.TOURNAMENT_RESULT) {
@@ -272,7 +369,17 @@ fun MindquestNavGraph(
                                 }
                             }
                             else -> {
-                                navController.popBackStack(NavRoutes.HOME, inclusive = false)
+                                // If launched from chapters, go back to chapters (with refresh)
+                                val chaptersEntry = try {
+                                    navController.getBackStackEntry(NavRoutes.CHAPTERS)
+                                } catch (_: Exception) { null }
+
+                                if (chaptersEntry != null) {
+                                    chaptersEntry.savedStateHandle["needsChapterRefresh"] = true
+                                    navController.popBackStack(NavRoutes.CHAPTERS, inclusive = false)
+                                } else {
+                                    navController.popBackStack(NavRoutes.HOME, inclusive = false)
+                                }
                             }
                         }
                     },
@@ -286,15 +393,23 @@ fun MindquestNavGraph(
                         }
                     },
                     onClose = {
+                        // Close without marking quiz as done (error / user quit)
                         when (config?.behavior) {
                             QuizBehavior.TOURNAMENT -> {
-                                // For tournament, closing submits and goes to result
                                 navController.navigate(NavRoutes.TOURNAMENT_RESULT) {
                                     popUpTo(NavRoutes.HOME) { inclusive = false }
                                 }
                             }
                             else -> {
-                                navController.popBackStack(NavRoutes.HOME, inclusive = false)
+                                val chaptersEntry = try {
+                                    navController.getBackStackEntry(NavRoutes.CHAPTERS)
+                                } catch (_: Exception) { null }
+
+                                if (chaptersEntry != null) {
+                                    navController.popBackStack(NavRoutes.CHAPTERS, inclusive = false)
+                                } else {
+                                    navController.popBackStack(NavRoutes.HOME, inclusive = false)
+                                }
                             }
                         }
                     },
@@ -376,7 +491,7 @@ fun MindquestNavGraph(
                 val viewModel = koinViewModel<TournamentViewModel>()
                 TournamentResultScreen(
                     viewModel = viewModel,
-                    userId = "current_user",
+                    userId = userId,
                     onViewLeaderboard = {
                         navController.navigate(NavRoutes.LEADERBOARD) {
                             popUpTo(NavRoutes.HOME) { inclusive = false }

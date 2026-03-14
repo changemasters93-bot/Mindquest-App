@@ -29,11 +29,13 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -62,6 +64,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -83,7 +86,10 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import com.android.mindquest.core.constants.AvatarConstants
 import com.android.mindquest.core.util.UiState
+import com.android.mindquest.domain.model.City
+import com.android.mindquest.domain.model.Country
 import kotlin.math.PI
 import kotlin.math.sin
 import kotlinx.coroutines.delay
@@ -112,6 +118,7 @@ private val FocusBg = Color(0xFFF8F7FF)
 // ═══════════════════════════════════════════════════════════════════
 // DATA
 // ═══════════════════════════════════════════════════════════════════
+// Avatar display data — backed by shared AvatarConstants for cross-feature consistency
 private data class AvatarData(
     val id: Int,
     val name: String,
@@ -120,28 +127,14 @@ private data class AvatarData(
     val bgTo: Color,
 )
 
-private val AVATARS = listOf(
-    AvatarData(1, "Sunny", "\uD83C\uDF1E", Color(0xFFFF6B9D), Color(0xFFFF8DC7)),
-    AvatarData(2, "Blaze", "\uD83D\uDD25", Color(0xFF4FACFE), Color(0xFF2B86E8)),
-    AvatarData(3, "Coco", "\uD83D\uDC35", Color(0xFFA78BFA), Color(0xFF7C3AED)),
-    AvatarData(4, "Rio", "\uD83E\uDD81", Color(0xFF34D399), Color(0xFF059669)),
-    AvatarData(5, "Luna", "\uD83C\uDF19", Color(0xFFF59E0B), Color(0xFFD97706)),
-    AvatarData(6, "Zack", "\u26A1", Color(0xFFF87171), Color(0xFFDC2626)),
-    AvatarData(7, "Nova", "\u2B50", Color(0xFF8B5CF6), Color(0xFF6D28D9)),
-    AvatarData(8, "Miko", "\uD83E\uDD13", Color(0xFF06B6D4), Color(0xFF0891B2)),
-)
+private val AVATARS = AvatarConstants.AVATARS.map { info ->
+    AvatarData(info.id, info.name, info.emoji, Color(info.bgFrom), Color(info.bgTo))
+}
 
-private val GRADES = listOf("Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8")
-private val COUNTRIES = listOf("India", "United States", "United Kingdom", "Canada", "Australia", "Singapore", "UAE")
-private val CITIES_MAP = mapOf(
-    "India" to listOf("Delhi", "Mumbai", "Bangalore", "Chennai", "Hyderabad", "Pune", "Kolkata"),
-    "United States" to listOf("New York", "Los Angeles", "Chicago", "Houston", "Phoenix"),
-    "United Kingdom" to listOf("London", "Manchester", "Birmingham", "Edinburgh"),
-    "Canada" to listOf("Toronto", "Vancouver", "Montreal", "Ottawa"),
-    "Australia" to listOf("Sydney", "Melbourne", "Brisbane", "Perth"),
-    "Singapore" to listOf("Singapore"),
-    "UAE" to listOf("Dubai", "Abu Dhabi", "Sharjah"),
-)
+// Hardcoded fallback — only used if backend hasn't loaded yet
+private val GRADES_FALLBACK = listOf("Grade 1", "Grade 2", "Grade 3", "Grade 4", "Grade 5", "Grade 6", "Grade 7", "Grade 8")
+private val COUNTRIES_FALLBACK = listOf("India", "United States", "United Kingdom", "Canada", "Australia", "Singapore", "UAE")
+private val CITIES_FALLBACK = listOf("Delhi", "Mumbai", "Bangalore", "Chennai", "Hyderabad", "Pune", "Kolkata")
 
 private data class SlideData(
     val emoji: String,
@@ -189,7 +182,8 @@ private data class ProfileData(
 )
 
 private enum class JourneyStep {
-    SPLASH, ONBOARDING, STEP1, STEP2, STEP3, PHONE_AUTH, DONE
+    SPLASH, USER_TYPE, ONBOARDING, STEP1, STEP2, STEP3, PHONE_AUTH,
+    EXISTING_LOGIN, EXISTING_PHONE_AUTH, DONE
 }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -205,12 +199,30 @@ fun LoginJourneyScreen(
 
     val authState by viewModel.authState.collectAsState()
     val authScreen by viewModel.authScreen.collectAsState()
+    val sessionCheck by viewModel.sessionCheck.collectAsState()
+    val backendCountries by viewModel.countries.collectAsState()
+    val backendCities by viewModel.cities.collectAsState()
+    val backendGrades by viewModel.grades.collectAsState()
+
+    // After splash finishes, checkSession() updates sessionCheck.
+    // CHECKING → do nothing (splash still playing or check in progress).
+    // LOGGED_IN → skip directly to Home.
+    // NOT_LOGGED_IN → show user type choice.
+    LaunchedEffect(sessionCheck) {
+        when (sessionCheck) {
+            SessionCheck.LOGGED_IN -> onComplete()
+            SessionCheck.NOT_LOGGED_IN -> currentStep = JourneyStep.USER_TYPE
+            SessionCheck.CHECKING -> { /* still checking, wait */ }
+        }
+    }
 
     // When phone auth reaches VERIFIED → show verified 2s → DONE
     LaunchedEffect(authScreen) {
-        if (authScreen == AuthScreenState.VERIFIED && currentStep == JourneyStep.PHONE_AUTH) {
-            delay(2000)
-            currentStep = JourneyStep.DONE
+        if (authScreen == AuthScreenState.VERIFIED) {
+            if (currentStep == JourneyStep.PHONE_AUTH || currentStep == JourneyStep.EXISTING_PHONE_AUTH) {
+                delay(2000)
+                currentStep = JourneyStep.DONE
+            }
         }
     }
 
@@ -229,7 +241,14 @@ fun LoginJourneyScreen(
     ) { step ->
         when (step) {
             JourneyStep.SPLASH -> SplashScreen(
-                onDone = { currentStep = JourneyStep.ONBOARDING },
+                onDone = {
+                    // Splash done → trigger session check; result handled by LaunchedEffect above
+                    viewModel.checkSession()
+                },
+            )
+            JourneyStep.USER_TYPE -> UserTypeScreen(
+                onNewUser = { currentStep = JourneyStep.ONBOARDING },
+                onExistingUser = { currentStep = JourneyStep.EXISTING_LOGIN },
             )
             JourneyStep.ONBOARDING -> OnboardingScreen(
                 onDone = { currentStep = JourneyStep.STEP1 },
@@ -238,25 +257,77 @@ fun LoginJourneyScreen(
                 data = profileData,
                 onUpdate = { profileData = it },
                 onNext = { currentStep = JourneyStep.STEP2 },
+                countries = backendCountries,
+                cities = backendCities,
+                onCountrySelected = { country ->
+                    viewModel.loadCities(country.id)
+                },
             )
             JourneyStep.STEP2 -> ProfileStep2(
                 data = profileData,
                 onUpdate = { profileData = it },
                 onNext = { currentStep = JourneyStep.STEP3 },
                 onBack = { currentStep = JourneyStep.STEP1 },
+                gradeLabels = backendGrades.map { it.label }.ifEmpty { GRADES_FALLBACK },
             )
-            JourneyStep.STEP3 -> WelcomeStep3(
-                data = profileData,
+            JourneyStep.STEP3 -> {
+                // Capitalize first letter of each word in the name
+                val formattedName = profileData.name.trim()
+                    .split(" ")
+                    .joinToString(" ") { word ->
+                        word.replaceFirstChar { it.uppercaseChar() }
+                    }
+
+                WelcomeStep3(
+                data = profileData.copy(name = formattedName),
                 onBack = { currentStep = JourneyStep.STEP2 },
-                onGoogle = { viewModel.signInWithGoogle() },
-                onAnonymous = { viewModel.signInAnonymously() },
+                onGoogle = {
+                    val resolvedGrade = viewModel.resolveGradeId(profileData.grade)
+                    val resolvedCountry = viewModel.resolveCountryId(profileData.country)
+                    val resolvedCity = viewModel.resolveCityId(profileData.city)
+                    println("DEBUG [MQ_AUTH]: STEP3 onGoogle — grade='${profileData.grade}'→'$resolvedGrade', country='${profileData.country}'→'$resolvedCountry', city='${profileData.city}'→'$resolvedCity'")
+                    val profile = OnboardingProfile(
+                        displayName = formattedName,
+                        avatarId = profileData.avatarId,
+                        gradeId = resolvedGrade,
+                        countryId = resolvedCountry,
+                        cityId = resolvedCity,
+                        schoolName = profileData.school.takeIf { it.isNotBlank() },
+                    )
+                    viewModel.signInWithGoogle(profile)
+                },
+                onAnonymous = {
+                    val resolvedGrade = viewModel.resolveGradeId(profileData.grade)
+                    val resolvedCountry = viewModel.resolveCountryId(profileData.country)
+                    val resolvedCity = viewModel.resolveCityId(profileData.city)
+                    println("DEBUG [MQ_AUTH]: STEP3 onAnonymous — grade='${profileData.grade}'→'$resolvedGrade', country='${profileData.country}'→'$resolvedCountry', city='${profileData.city}'→'$resolvedCity'")
+                    val profile = OnboardingProfile(
+                        displayName = formattedName,
+                        avatarId = profileData.avatarId,
+                        gradeId = resolvedGrade,
+                        countryId = resolvedCountry,
+                        cityId = resolvedCity,
+                        schoolName = profileData.school.takeIf { it.isNotBlank() },
+                    )
+                    viewModel.signInAnonymously(profile)
+                },
                 onPhone = {
+                    val profile = OnboardingProfile(
+                        displayName = formattedName,
+                        avatarId = profileData.avatarId,
+                        gradeId = viewModel.resolveGradeId(profileData.grade),
+                        countryId = viewModel.resolveCountryId(profileData.country),
+                        cityId = viewModel.resolveCityId(profileData.city),
+                        schoolName = profileData.school.takeIf { it.isNotBlank() },
+                    )
+                    viewModel.setPendingProfile(profile)
                     viewModel.navigateToPhone()
                     currentStep = JourneyStep.PHONE_AUTH
                 },
                 authState = authState,
-                onDone = { currentStep = JourneyStep.DONE },
+                onDone = { println("DEBUG [MQ_AUTH]: WelcomeStep3 onDone() called → DONE"); currentStep = JourneyStep.DONE },
             )
+            }
             JourneyStep.PHONE_AUTH -> PhoneAuthFlow(
                 viewModel = viewModel,
                 onBack = {
@@ -264,8 +335,28 @@ fun LoginJourneyScreen(
                     currentStep = JourneyStep.STEP3
                 },
             )
+            JourneyStep.EXISTING_LOGIN -> ExistingLoginScreen(
+                onGoogle = { viewModel.signInWithGoogle() },
+                onPhone = {
+                    viewModel.navigateToPhone()
+                    currentStep = JourneyStep.EXISTING_PHONE_AUTH
+                },
+                onBack = { currentStep = JourneyStep.USER_TYPE },
+                authState = authState,
+                onDone = { currentStep = JourneyStep.DONE },
+            )
+            JourneyStep.EXISTING_PHONE_AUTH -> PhoneAuthFlow(
+                viewModel = viewModel,
+                onBack = {
+                    viewModel.navigateToMain()
+                    currentStep = JourneyStep.EXISTING_LOGIN
+                },
+            )
             JourneyStep.DONE -> DoneScreen(
-                name = profileData.name,
+                name = profileData.name.trim()
+                    .split(" ")
+                    .joinToString(" ") { word -> word.replaceFirstChar { it.uppercaseChar() } }
+                    .ifBlank { "Champ" },
                 onStart = onComplete,
             )
         }
@@ -367,6 +458,410 @@ private fun SplashScreen(onDone: () -> Unit) {
                 .padding(bottom = 60.dp),
         ) {
             PulsingDots()
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// USER TYPE  —  New User / Existing User choice
+// ═══════════════════════════════════════════════════════════════════
+@Composable
+private fun UserTypeScreen(
+    onNewUser: () -> Unit,
+    onExistingUser: () -> Unit,
+) {
+    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) { visible = true }
+
+    val scale by animateFloatAsState(
+        targetValue = if (visible) 1f else 0.85f,
+        animationSpec = spring(dampingRatio = 0.6f, stiffness = Spring.StiffnessLow),
+        label = "ut_scale",
+    )
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = tween(500),
+        label = "ut_alpha",
+    )
+
+    // Floating bob for logo
+    val bobTransition = rememberInfiniteTransition(label = "ut_bob")
+    val bobY by bobTransition.animateFloat(
+        initialValue = 0f, targetValue = -8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "ut_bob_y",
+    )
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.linearGradient(listOf(DarkNavy, DarkPurple, DeepIndigo))),
+    ) {
+        TwinklingStarField(count = 25)
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = statusBarPadding)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Spacer(modifier = Modifier.height(60.dp))
+
+            // Logo
+            Box(
+                modifier = Modifier
+                    .scale(scale)
+                    .offset(y = bobY.dp)
+                    .size(80.dp)
+                    .clip(CircleShape)
+                    .background(Brush.linearGradient(listOf(IndigoLight, PrimaryColor))),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(text = "\uD83E\uDDE0", fontSize = 36.sp)
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(500, delayMillis = 200)),
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Row {
+                        Text("mind", fontSize = 24.sp, fontWeight = FontWeight.Black, color = Color.White, letterSpacing = (-0.5).sp)
+                        Text("quest", fontSize = 24.sp, fontWeight = FontWeight.Black, color = IndigoLight, letterSpacing = (-0.5).sp)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        "How would you like to start?",
+                        fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                        color = Color(0xFFC7D2FE).copy(alpha = 0.6f),
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            // ── New User Card ────────────────────────────────────────
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(400, delayMillis = 350)) + slideInHorizontally(
+                    initialOffsetX = { it / 3 },
+                    animationSpec = tween(400, delayMillis = 350),
+                ),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(Brush.linearGradient(listOf(IndigoLight, PrimaryColor)))
+                        .clickable { onNewUser() }
+                        .padding(24.dp),
+                ) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("\uD83D\uDE80", fontSize = 28.sp)
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column {
+                                Text(
+                                    "I'm new here",
+                                    fontSize = 18.sp, fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White,
+                                )
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    "Set up your profile and start learning",
+                                    fontSize = 12.sp, fontWeight = FontWeight.Medium,
+                                    color = Color.White.copy(alpha = 0.7f),
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "Get Started",
+                                fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                color = Color.White.copy(alpha = 0.85f),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("\u2192", fontSize = 14.sp, color = Color.White.copy(alpha = 0.85f))
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // ── Existing User Card ───────────────────────────────────
+            AnimatedVisibility(
+                visible = visible,
+                enter = fadeIn(tween(400, delayMillis = 500)) + slideInHorizontally(
+                    initialOffsetX = { it / 3 },
+                    animationSpec = tween(400, delayMillis = 500),
+                ),
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(Color.White.copy(alpha = 0.06f))
+                        .border(1.dp, Color.White.copy(alpha = 0.12f), RoundedCornerShape(22.dp))
+                        .clickable { onExistingUser() }
+                        .padding(24.dp),
+                ) {
+                    Column {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("\uD83D\uDC4B", fontSize = 28.sp)
+                            Spacer(modifier = Modifier.width(14.dp))
+                            Column {
+                                Text(
+                                    "I already have an account",
+                                    fontSize = 18.sp, fontWeight = FontWeight.ExtraBold,
+                                    color = Color.White,
+                                )
+                                Spacer(modifier = Modifier.height(3.dp))
+                                Text(
+                                    "Sign in to continue where you left off",
+                                    fontSize = 12.sp, fontWeight = FontWeight.Medium,
+                                    color = Color.White.copy(alpha = 0.5f),
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Text(
+                                "Sign In",
+                                fontSize = 12.sp, fontWeight = FontWeight.Bold,
+                                color = Color.White.copy(alpha = 0.55f),
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text("\u2192", fontSize = 14.sp, color = Color.White.copy(alpha = 0.55f))
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(60.dp))
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// EXISTING LOGIN  —  Google upfront, Phone secondary (no onboarding)
+// ═══════════════════════════════════════════════════════════════════
+@Composable
+private fun ExistingLoginScreen(
+    onGoogle: () -> Unit,
+    onPhone: () -> Unit,
+    onBack: () -> Unit,
+    authState: UiState<*>,
+    onDone: () -> Unit,
+) {
+    var isLoading by remember { mutableStateOf(false) }
+    var loadPct by remember { mutableStateOf(0) }
+    var authAttempt by remember { mutableIntStateOf(0) }
+    val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+
+    val bobTransition = rememberInfiniteTransition(label = "el_bob")
+    val bobY by bobTransition.animateFloat(
+        initialValue = 0f, targetValue = -8f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1500, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "el_bob_y",
+    )
+
+    // Drive progress bar locally
+    LaunchedEffect(isLoading) {
+        if (isLoading) {
+            while (loadPct < 80) {
+                delay(120)
+                loadPct = (loadPct + (4..12).random()).coerceAtMost(80)
+            }
+            // Safety timeout: if stuck at 80 for 30s, reset
+            delay(30_000)
+            if (isLoading && loadPct < 100) {
+                isLoading = false
+                loadPct = 0
+            }
+        }
+    }
+    // When auth succeeds → finish; on error → reset loading
+    LaunchedEffect(authState, authAttempt) {
+        if (authState is UiState.Success && isLoading) {
+            loadPct = 100
+            delay(400)
+            onDone()
+        }
+        if (authState is UiState.Error && isLoading) {
+            isLoading = false
+            loadPct = 0
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Brush.linearGradient(listOf(DarkNavy, DarkPurple, DeepIndigo))),
+    ) {
+        TwinklingStarField(count = 25)
+
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = statusBarPadding)
+                .verticalScroll(rememberScrollState()),
+        ) {
+            if (!isLoading) {
+                BackButton(onClick = onBack, dark = true)
+            } else {
+                Spacer(modifier = Modifier.height(48.dp))
+            }
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            // Welcome back header
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    text = "\uD83D\uDC4B", fontSize = 48.sp,
+                    modifier = Modifier.offset(y = bobY.dp),
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    "Welcome back!",
+                    fontSize = 28.sp, fontWeight = FontWeight.Black,
+                    color = Color.White, letterSpacing = (-0.6).sp,
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Sign in to your account",
+                    fontSize = 14.sp, fontWeight = FontWeight.Medium,
+                    color = Color(0xFFC7D2FE).copy(alpha = 0.5f),
+                )
+            }
+
+            Spacer(modifier = Modifier.height(48.dp))
+
+            // Auth buttons or loading
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+                    .padding(bottom = 32.dp),
+            ) {
+                if (isLoading) {
+                    Column(Modifier.fillMaxWidth(), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Text(
+                            "Signing you in\u2026",
+                            fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White,
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Box(
+                            modifier = Modifier.fillMaxWidth().height(8.dp)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(Color.White.copy(alpha = 0.1f)),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth(loadPct / 100f)
+                                    .height(8.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Brush.horizontalGradient(listOf(IndigoLight, PrimaryColor))),
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(10.dp))
+                        Text(
+                            when {
+                                loadPct < 40 -> "Verifying credentials\u2026"
+                                loadPct < 75 -> "Loading your profile\u2026"
+                                else -> "Almost there!"
+                            },
+                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                            color = Color(0xFFC7D2FE).copy(alpha = 0.4f),
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
+                        Text(
+                            "Cancel",
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.clickable {
+                                isLoading = false
+                                loadPct = 0
+                            },
+                        )
+                    }
+                } else {
+                    // Google — primary CTA
+                    Button(
+                        onClick = { authAttempt++; isLoading = true; onGoogle() },
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                    ) {
+                        Box(
+                            Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp))
+                                .background(Brush.linearGradient(listOf(Color(0xFF4285F4), Color(0xFF1A73E8)))),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("G", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                                Spacer(Modifier.width(12.dp))
+                                Text("Continue with Google", fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, color = Color.White)
+                            }
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Phone — secondary
+                    OutlinedButton(
+                        onClick = onPhone,
+                        modifier = Modifier.fillMaxWidth().height(54.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = 0.08f)),
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("\uD83D\uDCF1", fontSize = 18.sp)
+                            Spacer(Modifier.width(12.dp))
+                            Text("Continue with Phone", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.8f))
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    // Note
+                    Text(
+                        "New here? Go back to create an account",
+                        fontSize = 12.sp, color = Color.White.copy(alpha = 0.3f),
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth().clickable { onBack() },
+                    )
+                }
+            }
         }
     }
 }
@@ -563,10 +1058,28 @@ private fun ProfileStep1(
     data: ProfileData,
     onUpdate: (ProfileData) -> Unit,
     onNext: () -> Unit,
+    countries: List<Country> = emptyList(),
+    cities: List<City> = emptyList(),
+    onCountrySelected: (Country) -> Unit = {},
 ) {
-    val isValid = data.name.trim().length >= 2
     val avatar = AVATARS.find { it.id == data.avatarId } ?: AVATARS[3]
-    val cities = CITIES_MAP[data.country] ?: listOf("Capital City", "Main City")
+
+    // Use backend country/city names if loaded, otherwise fallback
+    val countryNames = countries.map { it.name }.ifEmpty { COUNTRIES_FALLBACK }
+    val cityNames = cities.map { it.name }.ifEmpty { CITIES_FALLBACK }
+
+    // Country, city, and name are all required
+    val isValid = data.name.trim().length >= 2
+        && data.country.isNotBlank()
+        && data.city.isNotBlank()
+
+    // Auto-select first city when cities reload (after country change)
+    LaunchedEffect(cities) {
+        val derivedCityNames = cities.map { it.name }.ifEmpty { CITIES_FALLBACK }
+        if (derivedCityNames.isNotEmpty() && (data.city.isEmpty() || data.city !in derivedCityNames)) {
+            onUpdate(data.copy(city = derivedCityNames.first()))
+        }
+    }
 
     // Floating bob for avatar preview
     val bobTransition = rememberInfiniteTransition(label = "av_bob")
@@ -582,7 +1095,8 @@ private fun ProfileStep1(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White),
+            .background(Color.White)
+            .imePadding(),
     ) {
         StepProgressBar(step = 1, total = 3)
 
@@ -612,26 +1126,26 @@ private fun ProfileStep1(
 
             Spacer(modifier = Modifier.height(20.dp))
 
-            // Country selector (styled dialog)
+            // Country selector (backed by Supabase data)
             SelectorField(
                 label = "Country",
                 value = data.country,
-                options = COUNTRIES,
-                onSelect = {
-                    val newCities = CITIES_MAP[it] ?: listOf("Capital City")
-                    onUpdate(data.copy(country = it, city = newCities.first()))
+                options = countryNames,
+                onSelect = { selectedName ->
+                    // Find the Country object and trigger city reload
+                    val country = countries.find { it.name == selectedName }
+                    if (country != null) onCountrySelected(country)
+                    onUpdate(data.copy(country = selectedName, city = ""))
                 },
-                hint = "\uD83D\uDCCD Detected: ${data.country}",
             )
 
             Spacer(modifier = Modifier.height(20.dp))
 
             SelectorField(
                 label = "City",
-                value = data.city,
-                options = cities,
+                value = data.city.ifEmpty { cityNames.firstOrNull() ?: "" },
+                options = cityNames,
                 onSelect = { onUpdate(data.copy(city = it)) },
-                hint = "\uD83D\uDCCD Detected: ${data.city}",
             )
 
             Spacer(modifier = Modifier.height(28.dp))
@@ -743,13 +1257,15 @@ private fun ProfileStep2(
     onUpdate: (ProfileData) -> Unit,
     onNext: () -> Unit,
     onBack: () -> Unit,
+    gradeLabels: List<String> = GRADES_FALLBACK,
 ) {
-    val isValid = data.grade.isNotEmpty() && data.school.trim().length >= 2
+    val isValid = data.grade.isNotEmpty()
 
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color.White),
+            .background(Color.White)
+            .imePadding(),
     ) {
         StepProgressBar(step = 2, total = 3)
 
@@ -780,7 +1296,7 @@ private fun ProfileStep2(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                GRADES.forEach { grade ->
+                gradeLabels.forEach { grade ->
                     val isSel = data.grade == grade
                     val pillScale by animateFloatAsState(
                         targetValue = if (isSel) 1.04f else 1f,
@@ -817,7 +1333,7 @@ private fun ProfileStep2(
             Spacer(modifier = Modifier.height(24.dp))
 
             JourneyInputField(
-                label = "School Name",
+                label = "School Name (Optional)",
                 value = data.school,
                 onValueChange = { onUpdate(data.copy(school = it)) },
                 placeholder = "e.g. Delhi Public School",
@@ -852,34 +1368,48 @@ private fun WelcomeStep3(
     val avatar = AVATARS.find { it.id == data.avatarId } ?: AVATARS[3]
     var isLoading by remember { mutableStateOf(false) }
     var loadPct by remember { mutableStateOf(0) }
+    var authAttempt by remember { mutableIntStateOf(0) }
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
-
-    // Floating bob
-    val bobTransition = rememberInfiniteTransition(label = "step3_bob")
-    val bobY by bobTransition.animateFloat(
-        initialValue = 0f, targetValue = -9f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1500, easing = FastOutSlowInEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "step3_bob_y",
-    )
 
     // Drive progress bar locally, complete when authState is success
     LaunchedEffect(isLoading) {
+        println("DEBUG [MQ_AUTH]: WelcomeStep3 LaunchedEffect(isLoading=$isLoading)")
         if (isLoading) {
             while (loadPct < 80) {
                 delay(120)
                 loadPct = (loadPct + (4..12).random()).coerceAtMost(80)
             }
+            println("DEBUG [MQ_AUTH]: WelcomeStep3 progress reached 80, waiting 30s timeout...")
+            // Safety timeout: if stuck at 80 for 30s, reset
+            delay(30_000)
+            if (isLoading && loadPct < 100) {
+                println("DEBUG [MQ_AUTH]: WelcomeStep3 TIMEOUT at 30s — resetting loading")
+                isLoading = false
+                loadPct = 0
+            }
         }
     }
     // When auth succeeds, finish progress → go to done
-    LaunchedEffect(authState) {
+    // Use authAttempt as extra key so even identical error values re-trigger
+    LaunchedEffect(authState, authAttempt) {
+        println("DEBUG [MQ_AUTH]: WelcomeStep3 LaunchedEffect(authState=$authState, attempt=$authAttempt) isLoading=$isLoading")
         if (authState is UiState.Success && isLoading) {
+            println("DEBUG [MQ_AUTH]: WelcomeStep3 authState=Success & isLoading → completing!")
             loadPct = 100
             delay(400)
             onDone()
+        }
+        if (authState is UiState.Success && !isLoading) {
+            println("DEBUG [MQ_AUTH]: WelcomeStep3 authState=Success BUT isLoading=false → MISSED!")
+        }
+        // On error, reset loading so user can try again
+        if (authState is UiState.Error && isLoading) {
+            println("DEBUG [MQ_AUTH]: WelcomeStep3 authState=Error & isLoading → resetting. Error: ${(authState as UiState.Error).message}")
+            isLoading = false
+            loadPct = 0
+        }
+        if (authState is UiState.Error && !isLoading) {
+            println("DEBUG [MQ_AUTH]: WelcomeStep3 authState=Error BUT isLoading=false. Error: ${(authState as UiState.Error).message}")
         }
     }
 
@@ -893,17 +1423,16 @@ private fun WelcomeStep3(
         // Ambient glow
         Box(
             modifier = Modifier
-                .size(300.dp)
+                .size(200.dp)
                 .offset(x = (-50).dp, y = (-40).dp)
                 .clip(CircleShape)
-                .background(avatar.bgFrom.copy(alpha = 0.12f)),
+                .background(avatar.bgFrom.copy(alpha = 0.10f)),
         )
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = statusBarPadding)
-                .verticalScroll(rememberScrollState()),
+                .padding(top = statusBarPadding),
         ) {
             // Back
             if (!isLoading) {
@@ -912,155 +1441,167 @@ private fun WelcomeStep3(
                 Spacer(modifier = Modifier.height(48.dp))
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Welcome headline with bob
+            // ── Scrollable profile area (takes remaining space) ──
             Column(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
+                modifier = Modifier
+                    .weight(1f)
+                    .verticalScroll(rememberScrollState()),
                 horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Text(
-                    text = "\uD83D\uDC4B", fontSize = 32.sp,
-                    modifier = Modifier.offset(y = bobY.dp),
-                )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    "Welcome aboard,",
-                    fontSize = 24.sp, fontWeight = FontWeight.Black,
-                    color = Color.White, letterSpacing = (-0.6).sp,
-                )
-                Text(
-                    "${data.name}!",
-                    fontSize = 24.sp, fontWeight = FontWeight.Black,
-                    color = avatar.bgFrom, letterSpacing = (-0.6).sp,
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Text(
-                    "Your MindQuest profile is ready",
-                    fontSize = 12.sp, fontWeight = FontWeight.Medium,
-                    color = Color(0xFFC7D2FE).copy(alpha = 0.5f),
-                )
-            }
 
-            Spacer(modifier = Modifier.height(20.dp))
-
-            // ── Profile card ───────────────────────────────────────
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
-                    .clip(RoundedCornerShape(28.dp))
-                    .background(Color.White.copy(alpha = 0.06f))
-                    .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(28.dp)),
-            ) {
-                // Avatar
+                // Welcome headline
                 Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 22.dp, bottom = 16.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .offset(y = bobY.dp)
-                            .size(80.dp)
-                            .clip(CircleShape)
-                            .background(Brush.linearGradient(listOf(avatar.bgFrom, avatar.bgTo)))
-                            .border(3.dp, Color.White.copy(alpha = 0.15f), CircleShape),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Text(avatar.emoji, fontSize = 40.sp)
+                    Text(
+                        text = "\uD83D\uDC4B", fontSize = 36.sp,
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            "Welcome, ",
+                            fontSize = 24.sp, fontWeight = FontWeight.Black,
+                            color = Color.White, letterSpacing = (-0.6).sp,
+                        )
+                        Text(
+                            "${data.name}!",
+                            fontSize = 24.sp, fontWeight = FontWeight.Black,
+                            color = avatar.bgFrom, letterSpacing = (-0.6).sp,
+                        )
                     }
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(data.name, fontSize = 22.sp, fontWeight = FontWeight.Black, color = Color.White)
-                    Text(avatar.name, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = Color(0xFFC7D2FE).copy(alpha = 0.45f))
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // XP pill
-                    Box(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(50.dp))
-                            .background(XpGold.copy(alpha = 0.12f))
-                            .border(1.dp, XpGold.copy(alpha = 0.25f), RoundedCornerShape(50.dp))
-                            .padding(horizontal = 14.dp, vertical = 5.dp),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("\u26A1", fontSize = 11.sp)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("0 XP \u00B7 Level 1", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = XpGold)
-                        }
-                    }
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        "Your profile is ready \u2014 choose how to sign in",
+                        fontSize = 13.sp, fontWeight = FontWeight.Medium,
+                        color = Color(0xFFC7D2FE).copy(alpha = 0.5f),
+                    )
                 }
 
-                // Divider
-                Box(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp)
-                        .height(1.dp).background(Color.White.copy(alpha = 0.07f)),
-                )
+                Spacer(modifier = Modifier.height(20.dp))
 
-                // Detail list — single column for clean layout on all screen sizes
-                val details = listOf(
-                    "\uD83C\uDF0D" to ("Country" to data.country),
-                    "\uD83C\uDFD8\uFE0F" to ("City" to data.city),
-                    "\uD83C\uDF93" to ("Grade" to data.grade),
-                    "\uD83C\uDFEB" to ("School" to data.school),
-                )
-
+                // ── Profile card ──────────────────────────────────
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 18.dp, vertical = 14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                        .padding(horizontal = 24.dp)
+                        .clip(RoundedCornerShape(22.dp))
+                        .background(Color.White.copy(alpha = 0.06f))
+                        .border(1.dp, Color.White.copy(alpha = 0.1f), RoundedCornerShape(22.dp))
+                        .padding(20.dp),
                 ) {
-                    details.forEach { (icon, pair) ->
-                        val (label, value) = pair
-                        Row(
+                    // Avatar + Name in a row
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
                             modifier = Modifier
-                                .fillMaxWidth()
-                                .clip(RoundedCornerShape(14.dp))
-                                .background(Color.White.copy(alpha = 0.05f))
-                                .border(1.dp, Color.White.copy(alpha = 0.08f), RoundedCornerShape(14.dp))
-                                .padding(horizontal = 14.dp, vertical = 11.dp),
-                            verticalAlignment = Alignment.CenterVertically,
+                                .size(56.dp)
+                                .clip(CircleShape)
+                                .background(Brush.linearGradient(listOf(avatar.bgFrom, avatar.bgTo)))
+                                .border(2.dp, Color.White.copy(alpha = 0.15f), CircleShape),
+                            contentAlignment = Alignment.Center,
                         ) {
-                            Text(icon, fontSize = 16.sp)
-                            Spacer(modifier = Modifier.width(12.dp))
-                            Column(Modifier.weight(1f)) {
-                                Text(
-                                    label.uppercase(), fontSize = 9.sp,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = Color(0xFFC7D2FE).copy(alpha = 0.4f),
-                                    letterSpacing = 0.8.sp,
-                                )
-                                Spacer(modifier = Modifier.height(1.dp))
-                                Text(
-                                    value, fontSize = 13.sp, fontWeight = FontWeight.Bold,
-                                    color = Color.White, maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
-                            Box(
-                                modifier = Modifier
-                                    .size(18.dp)
-                                    .clip(CircleShape)
-                                    .background(SuccessGreen),
-                                contentAlignment = Alignment.Center,
-                            ) {
-                                Icon(Icons.Default.Check, null, Modifier.size(11.dp), tint = Color.White)
-                            }
+                            Text(avatar.emoji, fontSize = 28.sp)
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                data.name, fontSize = 20.sp,
+                                fontWeight = FontWeight.Black, color = Color.White,
+                                maxLines = 1, overflow = TextOverflow.Ellipsis,
+                            )
+                            Text(
+                                avatar.name, fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFFC7D2FE).copy(alpha = 0.45f),
+                            )
+                        }
+                        // Check badge
+                        Box(
+                            modifier = Modifier
+                                .size(26.dp)
+                                .clip(CircleShape)
+                                .background(SuccessGreen),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Icon(Icons.Default.Check, "Selected", Modifier.size(14.dp), tint = Color.White)
                         }
                     }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    // Divider
+                    Box(
+                        modifier = Modifier.fillMaxWidth()
+                            .height(1.dp).background(Color.White.copy(alpha = 0.07f)),
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // Details in 2-column grid
+                    val details = buildList {
+                        add("\uD83C\uDF0D" to ("Country" to data.country))
+                        add("\uD83C\uDFD8\uFE0F" to ("City" to data.city))
+                        add("\uD83C\uDF93" to ("Grade" to data.grade))
+                        if (data.school.isNotBlank()) {
+                            add("\uD83C\uDFEB" to ("School" to data.school))
+                        }
+                    }
+
+                    details.chunked(2).forEach { rowItems ->
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            rowItems.forEach { (icon, pair) ->
+                                val (label, value) = pair
+                                Row(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .clip(RoundedCornerShape(12.dp))
+                                        .background(Color.White.copy(alpha = 0.05f))
+                                        .padding(horizontal = 12.dp, vertical = 10.dp),
+                                    verticalAlignment = Alignment.CenterVertically,
+                                ) {
+                                    Text(icon, fontSize = 15.sp)
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Column {
+                                        Text(
+                                            label.uppercase(), fontSize = 9.sp,
+                                            fontWeight = FontWeight.SemiBold,
+                                            color = Color(0xFFC7D2FE).copy(alpha = 0.4f),
+                                            letterSpacing = 0.8.sp,
+                                        )
+                                        Spacer(modifier = Modifier.height(1.dp))
+                                        Text(
+                                            value, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                                            color = Color.White, maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis,
+                                        )
+                                    }
+                                }
+                            }
+                            // Fill remaining space if odd number
+                            if (rowItems.size == 1) {
+                                Spacer(modifier = Modifier.weight(1f))
+                            }
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
                 }
+
+                Spacer(modifier = Modifier.height(24.dp))
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
-            // ── Auth Buttons / Loading ──────────────────────────────
+            // ── Auth Buttons / Loading — PINNED at bottom ─────────
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 24.dp)
-                    .padding(bottom = 32.dp),
+                    .padding(bottom = 28.dp),
             ) {
                 if (isLoading) {
                     // Loading progress
@@ -1069,41 +1610,52 @@ private fun WelcomeStep3(
                             "Setting up your profile\u2026",
                             fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White,
                         )
-                        Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(14.dp))
                         Box(
-                            modifier = Modifier.fillMaxWidth().height(8.dp)
+                            modifier = Modifier.fillMaxWidth().height(6.dp)
                                 .clip(RoundedCornerShape(10.dp))
                                 .background(Color.White.copy(alpha = 0.1f)),
                         ) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth(loadPct / 100f)
-                                    .height(8.dp)
+                                    .height(6.dp)
                                     .clip(RoundedCornerShape(10.dp))
                                     .background(Brush.horizontalGradient(listOf(avatar.bgFrom, avatar.bgTo))),
                             )
                         }
-                        Spacer(modifier = Modifier.height(10.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
                         Text(
                             when {
                                 loadPct < 40 -> "Creating your account\u2026"
                                 loadPct < 75 -> "Personalising your quizzes\u2026"
                                 else -> "Almost there!"
                             },
-                            fontSize = 12.sp, fontWeight = FontWeight.SemiBold,
+                            fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
                             color = Color(0xFFC7D2FE).copy(alpha = 0.4f),
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            "Cancel",
+                            fontSize = 13.sp, fontWeight = FontWeight.Bold,
+                            color = Color.White.copy(alpha = 0.5f),
+                            modifier = Modifier.clickable {
+                                isLoading = false
+                                loadPct = 0
+                            },
                         )
                     }
                 } else {
-                    // Google
+                    // Google — primary CTA with strong gradient
                     Button(
-                        onClick = { isLoading = true; onGoogle() },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        shape = RoundedCornerShape(16.dp),
+                        onClick = { println("DEBUG [MQ_AUTH]: WelcomeStep3 Google button clicked"); authAttempt++; isLoading = true; onGoogle() },
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                        shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                        contentPadding = PaddingValues(0.dp),
                     ) {
                         Box(
-                            Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp))
+                            Modifier.fillMaxSize().clip(RoundedCornerShape(14.dp))
                                 .background(Brush.linearGradient(listOf(Color(0xFF4285F4), Color(0xFF1A73E8)))),
                             contentAlignment = Alignment.Center,
                         ) {
@@ -1117,42 +1669,42 @@ private fun WelcomeStep3(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Phone
+                    // Phone — secondary CTA
                     OutlinedButton(
                         onClick = onPhone,
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = 0.08f)),
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.25f)),
+                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = 0.12f)),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("\uD83D\uDCF1", fontSize = 16.sp)
                             Spacer(Modifier.width(10.dp))
-                            Text("Continue with Phone", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.8f))
+                            Text("Continue with Phone", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.9f))
                         }
                     }
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Anonymous
+                    // Anonymous — tertiary CTA
                     OutlinedButton(
-                        onClick = { isLoading = true; onAnonymous() },
-                        modifier = Modifier.fillMaxWidth().height(50.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.1f)),
-                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = 0.04f)),
+                        onClick = { println("DEBUG [MQ_AUTH]: WelcomeStep3 Anonymous button clicked"); authAttempt++; isLoading = true; onAnonymous() },
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
+                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = 0.08f)),
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text("\uD83D\uDC7B", fontSize = 16.sp)
                             Spacer(Modifier.width(10.dp))
-                            Text("Try Anonymously", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.55f))
+                            Text("Try Anonymously", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.65f))
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         "Sign in later to save progress & enter tournaments",
-                        fontSize = 11.sp, color = Color.White.copy(alpha = 0.3f),
+                        fontSize = 10.sp, color = Color.White.copy(alpha = 0.3f),
                         textAlign = TextAlign.Center,
                         modifier = Modifier.fillMaxWidth(),
                     )
@@ -1178,7 +1730,7 @@ private fun PhoneAuthFlow(
     val statusBarPadding = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
 
     Box(
-        modifier = Modifier.fillMaxSize().background(Color.White),
+        modifier = Modifier.fillMaxSize().background(Color.White).imePadding(),
     ) {
         Column(
             modifier = Modifier
@@ -1549,10 +2101,7 @@ private fun StepProgressBar(step: Int, total: Int) {
             .padding(horizontal = 24.dp)
             .padding(top = statusBarPadding + 14.dp),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Text("Step $step of $total", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextMuted)
-            Text("${(fraction * 100).toInt()}%", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = PrimaryColor)
-        }
+        Text("Step $step of $total", fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = TextMuted)
         Spacer(modifier = Modifier.height(8.dp))
         Box(
             Modifier.fillMaxWidth().height(6.dp)
@@ -1655,7 +2204,7 @@ private fun SelectorField(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(value, fontSize = 15.sp, color = TextDark, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-            Icon(Icons.Default.KeyboardArrowDown, null, Modifier.size(20.dp), tint = TextMuted)
+            Icon(Icons.Default.KeyboardArrowDown, "Expand dropdown", Modifier.size(20.dp), tint = TextMuted)
         }
 
         if (showDialog) {
@@ -1741,7 +2290,7 @@ private fun SelectorDialog(
                                     .background(PrimaryColor),
                                 contentAlignment = Alignment.Center,
                             ) {
-                                Icon(Icons.Default.Check, null, Modifier.size(14.dp), tint = Color.White)
+                                Icon(Icons.Default.Check, "Selected", Modifier.size(14.dp), tint = Color.White)
                             }
                         }
                     }

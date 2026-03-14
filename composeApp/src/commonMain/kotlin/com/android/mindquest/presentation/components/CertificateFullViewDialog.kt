@@ -30,6 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -297,6 +299,7 @@ fun CertificateFullViewDialog(
             // Download button
             Box(
                 modifier = Modifier
+                    .semantics { contentDescription = "Download certificate" }
                     .fillMaxWidth()
                     .height(50.dp)
                     .clip(RoundedCornerShape(14.dp))
@@ -325,6 +328,7 @@ fun CertificateFullViewDialog(
                 color = Color.White.copy(alpha = 0.4f),
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier
+                    .semantics { contentDescription = "Close certificate view" }
                     .clip(RoundedCornerShape(8.dp))
                     .clickable(onClick = onDismiss)
                     .padding(horizontal = 16.dp, vertical = 8.dp),

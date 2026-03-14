@@ -160,8 +160,16 @@ private fun ChaptersContent(
     onQuizSelect: (Quiz) -> Unit,
 ) {
     val totalChapters = chapters.size
-    val completedChapters = chapters.count { it.state == ChapterState.COMPLETED }
+    // Use chapter state OR fallback to progress data (quizzesDone >= totalQuizzes)
+    val completedChapters = chapters.count { ch ->
+        ch.state == ChapterState.COMPLETED ||
+            (ch.progress != null && ch.progress.totalQuizzes > 0 &&
+                ch.progress.quizzesDone >= ch.progress.totalQuizzes)
+    }
     val overallProgress = if (totalChapters > 0) completedChapters.toFloat() / totalChapters else 0f
+    // Compute total quizzes done across all chapters for XP estimate
+    val totalQuizzesDone = chapters.sumOf { it.progress?.quizzesDone ?: 0 }
+    val moduleXp = module.progress?.totalXpEarned ?: (totalQuizzesDone * 50L)
 
     LazyColumn(
         modifier = Modifier
@@ -178,6 +186,7 @@ private fun ChaptersContent(
                 completedChapters = completedChapters,
                 totalChapters = totalChapters,
                 overallProgress = overallProgress,
+                moduleXp = moduleXp,
                 onBack = onBack,
             )
         }
@@ -224,6 +233,7 @@ private fun HeroHeader(
     completedChapters: Int,
     totalChapters: Int,
     overallProgress: Float,
+    moduleXp: Long = 0,
     onBack: () -> Unit,
 ) {
     Box(
@@ -291,7 +301,7 @@ private fun HeroHeader(
                         overflow = TextOverflow.Ellipsis,
                     )
                     Text(
-                        text = "Grade 5",
+                        text = module.subtitle ?: "$completedChapters/$totalChapters chapters",
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Medium,
                         color = Color.White.copy(alpha = 0.8f),
@@ -313,7 +323,7 @@ private fun HeroHeader(
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 ) {
                     Text(
-                        text = "\u26A1 XP",
+                        text = "\u26A1 $moduleXp XP",
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White,

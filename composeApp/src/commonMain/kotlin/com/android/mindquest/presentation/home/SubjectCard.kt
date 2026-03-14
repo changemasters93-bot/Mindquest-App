@@ -32,6 +32,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -87,14 +89,16 @@ fun SubjectCard(
         ?: Pair(Color(0xFF4F46E5), Color(0xFF4338CA))
     val emoji = subjectEmojis[moduleKey] ?: module.emoji
 
-    val bestScore = module.progress?.bestScorePct ?: 0
+    val completedChapters = module.progress?.completedChapters ?: 0
+    val totalChapters = module.progress?.totalChapters ?: 0
     val isCompleted = module.progress?.isCompleted == true
-    val isNotStarted = module.progress == null || bestScore == 0
-    val progress = bestScore / 100f
-    val percentage = if (isCompleted) 100 else bestScore
+    val isNotStarted = module.progress == null || completedChapters == 0
+    val progress = if (totalChapters > 0) completedChapters.toFloat() / totalChapters else 0f
+    val percentage = if (isCompleted) 100 else if (totalChapters > 0) (completedChapters * 100 / totalChapters) else 0
 
     Card(
         modifier = modifier
+            .semantics { contentDescription = "${module.title} subject card" }
             .graphicsLayer {
                 scaleX = scale
                 scaleY = scale
@@ -203,7 +207,7 @@ fun SubjectCard(
                         text = when {
                             isCompleted -> "\u2705 Completed"
                             isNotStarted -> "Not Started"
-                            else -> "In Progress"
+                            else -> "$completedChapters/$totalChapters chapters"
                         },
                         fontSize = 11.sp,
                         color = when {
@@ -227,7 +231,7 @@ fun SubjectCard(
                             .padding(horizontal = 8.dp, vertical = 2.dp),
                     ) {
                         Text(
-                            text = "$percentage%",
+                            text = if (totalChapters > 0) "$percentage%" else "--",
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             color = when {

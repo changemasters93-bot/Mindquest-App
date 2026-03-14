@@ -23,6 +23,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -108,6 +110,7 @@ fun LinkAccountDialog(
             // ── Google button ─────────────────────────────────
             Box(
                 modifier = Modifier
+                    .semantics { contentDescription = "Continue with Google" }
                     .fillMaxWidth()
                     .height(52.dp)
                     .clip(RoundedCornerShape(16.dp))
@@ -149,6 +152,7 @@ fun LinkAccountDialog(
             // ── Phone button ─────────────────────────────────
             Box(
                 modifier = Modifier
+                    .semantics { contentDescription = "Continue with Phone" }
                     .fillMaxWidth()
                     .height(52.dp)
                     .clip(RoundedCornerShape(16.dp))
@@ -184,6 +188,7 @@ fun LinkAccountDialog(
                 color = Color.White.copy(alpha = 0.4f),
                 fontWeight = FontWeight.Medium,
                 modifier = Modifier
+                    .semantics { contentDescription = "Dismiss sign in dialog" }
                     .clip(RoundedCornerShape(8.dp))
                     .clickable(onClick = onDismiss)
                     .padding(horizontal = 16.dp, vertical = 8.dp),

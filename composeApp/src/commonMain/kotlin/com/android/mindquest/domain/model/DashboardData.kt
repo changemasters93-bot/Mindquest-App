@@ -7,4 +7,6 @@ data class DashboardData(
     val activeTournament: Tournament? = null,
     val activeTournamentEntry: TournamentEntry? = null,
     val lastIqTestDateMillis: Long? = null,
+    val iqCooldownHours: Int = 168,
+    val iqQuizId: String? = null,
 )

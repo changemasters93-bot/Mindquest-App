@@ -12,6 +12,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -30,7 +31,13 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -58,6 +65,13 @@ import com.android.mindquest.presentation.components.ErrorView
 import com.android.mindquest.presentation.components.LoadingView
 import com.android.mindquest.presentation.components.MindquestProgressBar
 import kotlinx.coroutines.delay
+import kotlinx.datetime.Clock
+import kotlinx.datetime.DatePeriod
+import kotlinx.datetime.LocalDate
+import kotlinx.datetime.TimeZone
+import kotlinx.datetime.minus
+import kotlinx.datetime.plus
+import kotlinx.datetime.toLocalDateTime
 
 // ── IQ Journey Levels ───────────────────────────────────────────────────────────
 
@@ -135,16 +149,25 @@ private val subjectColors = mapOf(
 fun StatsScreen(
     viewModel: StatsViewModel,
     userId: String = "current_user",
+    onStartIqTest: () -> Unit = {},
 ) {
     LaunchedEffect(userId) {
         viewModel.loadStats(userId)
     }
 
     val statsState by viewModel.statsState.collectAsState()
+    val activePeriod by viewModel.activePeriod.collectAsState()
+    val activityLoading by viewModel.activityLoading.collectAsState()
 
     when (val state = statsState) {
         is UiState.Loading -> LoadingView()
-        is UiState.Success -> StatsContent(data = state.data)
+        is UiState.Success -> StatsContent(
+            data = state.data,
+            activePeriod = activePeriod,
+            activityLoading = activityLoading,
+            onPeriodChange = { viewModel.changePeriod(it) },
+            onStartIqTest = onStartIqTest,
+        )
         is UiState.Error -> ErrorView(message = state.message, onRetry = { viewModel.loadStats(userId) })
         is UiState.Empty -> ErrorView(
             message = "No stats available yet. Start a quiz to see your progress!",
@@ -158,7 +181,13 @@ fun StatsScreen(
 }
 
 @Composable
-private fun StatsContent(data: StatsData) {
+private fun StatsContent(
+    data: StatsData,
+    activePeriod: String = "last_week",
+    activityLoading: Boolean = false,
+    onPeriodChange: (String) -> Unit = {},
+    onStartIqTest: () -> Unit = {},
+) {
     var visible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
@@ -200,13 +229,18 @@ private fun StatsContent(data: StatsData) {
             }
         }
 
-        // IQ Score Card (dark hero)
+        // IQ Score Card (dark hero) — or "Take IQ Test" prompt when no score
         item {
             AnimatedVisibility(
                 visible = visible,
                 enter = fadeIn(tween(400, delayMillis = 100)) + slideInVertically(tween(400, delayMillis = 100)) { it / 4 },
             ) {
-                IqScoreCard(iqScore = data.stats.iqScore ?: 112, animated = visible)
+                val iqScore = data.stats.iqScore
+                if (iqScore != null && iqScore > 0) {
+                    IqScoreCard(iqScore = iqScore, animated = visible)
+                } else {
+                    IqTestPromptCard(onStartIqTest = onStartIqTest)
+                }
             }
         }
 
@@ -216,7 +250,12 @@ private fun StatsContent(data: StatsData) {
                 visible = visible,
                 enter = fadeIn(tween(500, delayMillis = 200)) + slideInVertically(tween(500, delayMillis = 200)) { it / 4 },
             ) {
-                ActivityChartSection(dailyActivity = data.dailyActivity, stats = data.stats)
+                ActivityChartSection(
+                    dailyActivity = data.dailyActivity,
+                    activePeriod = activePeriod,
+                    activityLoading = activityLoading,
+                    onPeriodChange = onPeriodChange,
+                )
             }
         }
 
@@ -243,8 +282,12 @@ private fun StatsContent(data: StatsData) {
             }
         }
 
-        // Subject cards with tag pills
-        itemsIndexed(data.subjectPerformance) { index, subject ->
+        // Subject cards sorted by backend rank (per-module rank among all users)
+        val rankedSubjects = data.subjectPerformance
+            .sortedBy { if (it.rank == 0) Int.MAX_VALUE else it.rank }
+            .map { subj -> subj to subj.rank }
+
+        itemsIndexed(rankedSubjects) { index, (subject, rank) ->
             AnimatedVisibility(
                 visible = visible,
                 enter = fadeIn(tween(400, delayMillis = 350 + index * 70)) +
@@ -252,6 +295,8 @@ private fun StatsContent(data: StatsData) {
             ) {
                 SubjectCardNew(
                     subject = subject,
+                    rank = rank,
+                    totalModules = data.subjectPerformance.size,
                     modifier = Modifier.padding(horizontal = 20.dp),
                 )
             }
@@ -621,13 +666,184 @@ private fun IqScoreCard(iqScore: Int, animated: Boolean) {
     }
 }
 
+// ── IQ Test Prompt (when user has no IQ score) ─────────────────────────────────
+
+@Composable
+private fun IqTestPromptCard(onStartIqTest: () -> Unit = {}) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 20.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(
+                Brush.linearGradient(
+                    listOf(
+                        Color(0xFF0F172A),
+                        Color(0xFF1E1B4B),
+                        Color(0xFF312E81),
+                    ),
+                ),
+            ),
+    ) {
+        // Decorative glow
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .offset(x = 30.dp, y = (-30).dp)
+                .size(130.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF818CF8).copy(alpha = 0.08f)),
+        )
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(18.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text(text = "\uD83E\uDDE0", fontSize = 40.sp)
+
+            Spacer(modifier = Modifier.height(10.dp))
+
+            Text(
+                text = "Discover Your IQ Level",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = Color.White,
+            )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Text(
+                text = "Take the IQ Challenge to unlock your score and track your cognitive growth!",
+                fontSize = 13.sp,
+                color = Color.White.copy(alpha = 0.45f),
+                textAlign = TextAlign.Center,
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Journey level preview (dimmed)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceEvenly,
+            ) {
+                IQ_LEVELS.forEach { level ->
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.weight(1f),
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.07f))
+                                .border(1.5.dp, Color.White.copy(alpha = 0.12f), CircleShape),
+                            contentAlignment = Alignment.Center,
+                        ) {
+                            Text(
+                                text = level.emoji,
+                                fontSize = 14.sp,
+                                color = Color.White.copy(alpha = 0.35f),
+                            )
+                        }
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = level.label,
+                            fontSize = 8.sp,
+                            color = Color.White.copy(alpha = 0.2f),
+                            textAlign = TextAlign.Center,
+                            maxLines = 2,
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            Box(
+                modifier = Modifier
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(
+                        Brush.linearGradient(
+                            listOf(Color(0xFF6366F1), Color(0xFF8B5CF6)),
+                        ),
+                    )
+                    .clickable { onStartIqTest() }
+                    .padding(horizontal = 28.dp, vertical = 12.dp),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = "\uD83E\uDDE0  Start IQ Challenge",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.White,
+                )
+            }
+        }
+    }
+}
+
+// ── Activity Period ──────────────────────────────────────────────────────────────
+
+private enum class ActivityPeriod(val label: String, val apiKey: String, val days: Int) {
+    LAST_WEEK("Last Week", "last_week", 7),
+    LAST_MONTH("Last Month", "last_month", 30),
+    LAST_6_MONTHS("6 Months", "last_6_months", 180);
+
+    /** Subtitle shown below the "Activity" header. */
+    val chartSubtitle: String
+        get() = when (this) {
+            LAST_WEEK -> "Your last 7 days"
+            LAST_MONTH -> "Your last 30 days"
+            LAST_6_MONTHS -> "Your last 6 months"
+        }
+
+    /** Label for the XP stat tile. */
+    val xpLabel: String
+        get() = when (this) {
+            LAST_WEEK -> "Week XP"
+            LAST_MONTH -> "Month XP"
+            LAST_6_MONTHS -> "6-Month XP"
+        }
+
+    /** Label for the quizzes stat tile. */
+    val quizzesLabel: String
+        get() = when (this) {
+            LAST_WEEK -> "Week Quizzes"
+            LAST_MONTH -> "Month Quizzes"
+            LAST_6_MONTHS -> "6-Month Quizzes"
+        }
+
+    /** Empty-state message. */
+    val emptyMessage: String
+        get() = when (this) {
+            LAST_WEEK -> "No activity this week"
+            LAST_MONTH -> "No activity this month"
+            LAST_6_MONTHS -> "No activity in the last 6 months"
+        }
+}
+
 // ── Activity Chart Section ──────────────────────────────────────────────────────
 
 @Composable
-private fun ActivityChartSection(dailyActivity: List<DailyActivity>, stats: UserStats) {
-    val last7 = dailyActivity.takeLast(7)
-    val totalXp = last7.sumOf { it.xp }
-    val totalQuizzes = last7.sumOf { it.quizzes }
+private fun ActivityChartSection(
+    dailyActivity: List<DailyActivity>,
+    activePeriod: String = "last_week",
+    activityLoading: Boolean = false,
+    onPeriodChange: (String) -> Unit = {},
+) {
+    val selectedPeriod = ActivityPeriod.entries.find { it.apiKey == activePeriod }
+        ?: ActivityPeriod.LAST_WEEK
+
+    // Build a lookup from backend data keyed by date
+    val dataByDate = dailyActivity.associateBy { it.date }
+
+    val totalXp = dailyActivity.sumOf { it.xp }
+    val totalQuizzes = dailyActivity.sumOf { it.quizzes }
+
+    // Always generate full-range chart data so labels appear even without data
+    val chartData = generateFullRangeData(selectedPeriod, dataByDate)
 
     Card(
         modifier = Modifier
@@ -638,19 +854,79 @@ private fun ActivityChartSection(dailyActivity: List<DailyActivity>, stats: User
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Column(modifier = Modifier.padding(18.dp)) {
-            // Header
-            Text(
-                text = "Activity",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = MindquestColors.TextPrimary,
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "XP earned over time",
-                fontSize = 11.sp,
-                color = MindquestColors.TextSecondary,
-            )
+            // Header + period tabs
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column {
+                    Text(
+                        text = "Activity",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = MindquestColors.TextPrimary,
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = selectedPeriod.chartSubtitle,
+                        fontSize = 11.sp,
+                        color = MindquestColors.TextSecondary,
+                    )
+                }
+
+                // Period dropdown selector
+                Box {
+                    var expanded by remember { mutableStateOf(false) }
+
+                    Row(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color(0xFFF3F4F6))
+                            .clickable { expanded = true }
+                            .padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        Text(
+                            text = selectedPeriod.label,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = MindquestColors.Primary,
+                        )
+                        Icon(
+                            imageVector = Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Select period",
+                            modifier = Modifier.size(16.dp),
+                            tint = MindquestColors.Primary,
+                        )
+                    }
+
+                    DropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false },
+                    ) {
+                        ActivityPeriod.entries.forEach { period ->
+                            val isActive = period == selectedPeriod
+                            DropdownMenuItem(
+                                text = {
+                                    Text(
+                                        text = period.label,
+                                        fontSize = 13.sp,
+                                        fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                                        color = if (isActive) MindquestColors.Primary
+                                        else MindquestColors.TextPrimary,
+                                    )
+                                },
+                                onClick = {
+                                    expanded = false
+                                    if (!isActive) onPeriodChange(period.apiKey)
+                                },
+                            )
+                        }
+                    }
+                }
+            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
@@ -661,7 +937,7 @@ private fun ActivityChartSection(dailyActivity: List<DailyActivity>, stats: User
             ) {
                 ActivityStatTile(
                     emoji = "\u26A1",
-                    label = "Total XP",
+                    label = selectedPeriod.xpLabel,
                     value = totalXp.toString(),
                     color = Color(0xFF6D28D9),
                     bgStart = Color(0xFFF5F3FF),
@@ -671,7 +947,7 @@ private fun ActivityChartSection(dailyActivity: List<DailyActivity>, stats: User
                 )
                 ActivityStatTile(
                     emoji = "\uD83D\uDCDD",
-                    label = "Quizzes",
+                    label = selectedPeriod.quizzesLabel,
                     value = totalQuizzes.toString(),
                     color = Color(0xFF1D4ED8),
                     bgStart = Color(0xFFEFF6FF),
@@ -683,8 +959,27 @@ private fun ActivityChartSection(dailyActivity: List<DailyActivity>, stats: User
 
             Spacer(modifier = Modifier.height(18.dp))
 
-            // Bar chart
-            WeeklyBarChart(data = last7)
+            if (activityLoading) {
+                // Subtle loading indicator while period data is refreshing
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(120.dp),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(28.dp),
+                        color = Color(0xFF6366F1),
+                        strokeWidth = 3.dp,
+                    )
+                }
+            } else {
+                // Bar chart — always shows full range labels even without data
+                ActivityBarChart(
+                    data = chartData,
+                    period = selectedPeriod,
+                )
+            }
         }
     }
 }
@@ -710,7 +1005,7 @@ private fun ActivityStatTile(
         Column {
             Text(
                 text = "$emoji ${label.uppercase()}",
-                fontSize = 10.sp,
+                fontSize = 8.sp,
                 fontWeight = FontWeight.Bold,
                 color = color.copy(alpha = 0.7f),
                 letterSpacing = 0.8.sp,
@@ -718,7 +1013,7 @@ private fun ActivityStatTile(
             Spacer(modifier = Modifier.height(6.dp))
             Text(
                 text = value,
-                fontSize = 30.sp,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = color,
             )
@@ -726,12 +1021,122 @@ private fun ActivityStatTile(
     }
 }
 
+/**
+ * Generates the full-range chart data for the selected period, filling in
+ * zero-value entries for dates that the backend did not return data for.
+ *
+ * - LAST_WEEK:     7 individual days (today – 6 … today)
+ * - LAST_MONTH:    ~5 weekly chunks over the last 30 days
+ * - LAST_6_MONTHS: 6 monthly buckets (this month – 5 … this month)
+ */
+private fun generateFullRangeData(
+    period: ActivityPeriod,
+    dataByDate: Map<String, DailyActivity>,
+): List<DailyActivity> {
+    val today = Clock.System.now()
+        .toLocalDateTime(TimeZone.currentSystemDefault()).date
+
+    return when (period) {
+        ActivityPeriod.LAST_WEEK -> {
+            // 7 individual days: today-6 … today
+            (0..6).map { idx ->
+                val d = today.minus(DatePeriod(days = 6 - idx))
+                val key = d.toString() // "YYYY-MM-DD"
+                dataByDate[key] ?: DailyActivity(date = key, quizzes = 0, xp = 0)
+            }
+        }
+
+        ActivityPeriod.LAST_MONTH -> {
+            // 5 weekly chunks covering the last ~35 days
+            val numWeeks = 5
+            val startDate = today.minus(DatePeriod(days = numWeeks * 7 - 1))
+            (0 until numWeeks).map { weekIdx ->
+                val weekStart = startDate.plus(DatePeriod(days = weekIdx * 7))
+                val weekEnd = if (weekIdx == numWeeks - 1) today
+                else startDate.plus(DatePeriod(days = (weekIdx + 1) * 7 - 1))
+                // Sum all matching dates within the week
+                var xp = 0
+                var quizzes = 0
+                var d = weekStart
+                while (d <= weekEnd) {
+                    dataByDate[d.toString()]?.let { xp += it.xp; quizzes += it.quizzes }
+                    d = d.plus(DatePeriod(days = 1))
+                }
+                DailyActivity(date = weekStart.toString(), quizzes = quizzes, xp = xp)
+            }
+        }
+
+        ActivityPeriod.LAST_6_MONTHS -> {
+            // 6 monthly buckets
+            (0 until 6).map { idx ->
+                val m = today.minus(DatePeriod(months = 5 - idx))
+                // Use first day of that month as the bucket key
+                val bucketDate = LocalDate(m.year, m.monthNumber, 1)
+                val key = bucketDate.toString()
+                // Sum all days in that month from the backend data
+                val prefix = key.substring(0, 7) // "YYYY-MM"
+                var xp = 0
+                var quizzes = 0
+                dataByDate.forEach { (dateKey, activity) ->
+                    if (dateKey.startsWith(prefix)) {
+                        xp += activity.xp
+                        quizzes += activity.quizzes
+                    }
+                }
+                DailyActivity(date = key, quizzes = quizzes, xp = xp)
+            }
+        }
+    }
+}
+
+/**
+ * Derives a display label from a date string ("YYYY-MM-DD") based on the active period.
+ *
+ * The **last** bar in each period gets a special "anchor" label:
+ * - LAST_WEEK   → "Mon", "Tue", … last → **"Today"**
+ * - LAST_MONTH  → "Mar 5", "Mar 12", … last → **"This Wk"**
+ * - LAST_6_MONTHS → "Oct", "Nov", … last → **month name** (current month)
+ */
+private fun dateLabel(dateStr: String, period: ActivityPeriod, isLast: Boolean = false): String {
+    if (dateStr.length < 10) return dateStr
+
+    val monthNames = listOf("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec")
+    val dayNames = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
+
+    return try {
+        val year = dateStr.substring(0, 4).toInt()
+        val month = dateStr.substring(5, 7).toInt()  // 1-12
+        val day = dateStr.substring(8, 10).toInt()    // 1-31
+
+        when (period) {
+            ActivityPeriod.LAST_WEEK -> {
+                if (isLast) "Today"
+                else {
+                    // Tomohiko Sakamoto's day-of-week algorithm
+                    val t = intArrayOf(0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4)
+                    val y = if (month < 3) year - 1 else year
+                    val dow = (y + y / 4 - y / 100 + y / 400 + t[month - 1] + day) % 7
+                    dayNames[if (dow == 0) 6 else dow - 1]
+                }
+            }
+            ActivityPeriod.LAST_MONTH -> {
+                if (isLast) "This Wk"
+                else "${monthNames[month - 1]} $day"
+            }
+            ActivityPeriod.LAST_6_MONTHS -> {
+                monthNames[month - 1]
+            }
+        }
+    } catch (_: Exception) {
+        dateStr.takeLast(5)
+    }
+}
+
 @Composable
-private fun WeeklyBarChart(data: List<DailyActivity>) {
+private fun ActivityBarChart(data: List<DailyActivity>, period: ActivityPeriod = ActivityPeriod.LAST_WEEK) {
     val maxXp = data.maxOfOrNull { it.xp }?.coerceAtLeast(1) ?: 1
-    val dayLabels = listOf("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
     val barMaxHeight = 100f
-    val todayIdx = data.size - 1
+    val lastIdx = data.size - 1
 
     Column {
         // Bars
@@ -744,7 +1149,7 @@ private fun WeeklyBarChart(data: List<DailyActivity>) {
         ) {
             data.forEachIndexed { index, activity ->
                 val fraction = if (maxXp > 0) activity.xp.toFloat() / maxXp else 0f
-                val isToday = index == todayIdx
+                val isLast = index == lastIdx
                 val animatedFraction by animateFloatAsState(
                     targetValue = fraction,
                     animationSpec = tween(500, delayMillis = index * 60),
@@ -756,8 +1161,8 @@ private fun WeeklyBarChart(data: List<DailyActivity>) {
                     verticalArrangement = Arrangement.Bottom,
                     modifier = Modifier.weight(1f),
                 ) {
-                    // Today XP label
-                    if (isToday && activity.xp > 0) {
+                    // Latest bar XP label
+                    if (isLast && activity.xp > 0) {
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(6.dp))
@@ -780,7 +1185,7 @@ private fun WeeklyBarChart(data: List<DailyActivity>) {
                             .height(barHeight.dp)
                             .clip(RoundedCornerShape(topStart = 5.dp, topEnd = 5.dp))
                             .background(
-                                if (isToday) {
+                                if (isLast) {
                                     Brush.verticalGradient(
                                         listOf(Color(0xFFA5B4FC), Color(0xFF4F46E5)),
                                     )
@@ -801,18 +1206,19 @@ private fun WeeklyBarChart(data: List<DailyActivity>) {
 
         Spacer(modifier = Modifier.height(6.dp))
 
-        // Day labels
+        // Labels – derived from actual dates and the active period
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceEvenly,
         ) {
-            data.forEachIndexed { index, _ ->
-                val isToday = index == todayIdx
+            data.forEachIndexed { index, activity ->
+                val isLast = index == lastIdx
+                val label = dateLabel(activity.date, period, isLast = isLast)
                 Text(
-                    text = dayLabels.getOrElse(index) { "" },
+                    text = label,
                     fontSize = 10.sp,
-                    fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
-                    color = if (isToday) MindquestColors.Primary else Color(0xFFCBD5E1),
+                    fontWeight = if (isLast) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isLast) MindquestColors.Primary else Color(0xFFCBD5E1),
                     modifier = Modifier.weight(1f),
                     textAlign = TextAlign.Center,
                 )
@@ -824,7 +1230,12 @@ private fun WeeklyBarChart(data: List<DailyActivity>) {
 // ── Subject Card with Tag Pill ──────────────────────────────────────────────────
 
 @Composable
-private fun SubjectCardNew(subject: SubjectPerformance, modifier: Modifier = Modifier) {
+private fun SubjectCardNew(
+    subject: SubjectPerformance,
+    rank: Int = 0,
+    totalModules: Int = 0,
+    modifier: Modifier = Modifier,
+) {
     val subjectKey = subject.title.lowercase().trim()
     val accentColor = subjectColors[subjectKey] ?: Color(0xFF6366F1)
     val tag = getSubjectTag(subject.accuracyPct)
@@ -919,11 +1330,25 @@ private fun SubjectCardNew(subject: SubjectPerformance, modifier: Modifier = Mod
 
                 Spacer(modifier = Modifier.height(14.dp))
 
-                // 3 stat chips
+                // 4 stat chips: Rank, Accuracy, Chapters, Best
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(7.dp),
                 ) {
+                    if (rank > 0) {
+                        SubjectStatChip(
+                            emoji = "\uD83C\uDFC6",
+                            value = "#$rank",
+                            label = "Rank",
+                            color = when (rank) {
+                                1 -> Color(0xFFF59E0B) // gold
+                                2 -> Color(0xFF9CA3AF) // silver
+                                3 -> Color(0xFFC09060) // bronze
+                                else -> MindquestColors.Primary
+                            },
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
                     SubjectStatChip(
                         emoji = "\uD83C\uDFAF",
                         value = "${subject.accuracyPct}%",
@@ -969,21 +1394,21 @@ private fun SubjectStatChip(
             modifier = Modifier
                 .fillMaxWidth()
                 .border(1.dp, Color(0xFFF3F4F6), RoundedCornerShape(14.dp))
-                .padding(9.dp),
+                .padding(8.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Text(text = emoji, fontSize = 13.sp)
             Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = value,
-                fontSize = 15.sp,
+                fontSize = 14.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = color,
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
                 text = label.uppercase(),
-                fontSize = 9.sp,
+                fontSize = 7.sp,
                 color = Color(0xFFC4C9D6),
                 letterSpacing = 0.5.sp,
             )

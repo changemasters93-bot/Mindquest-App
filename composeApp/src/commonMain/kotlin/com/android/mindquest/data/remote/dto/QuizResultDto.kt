@@ -15,5 +15,6 @@ data class QuizResultDto(
     @SerialName("level_changed") val levelChanged: Boolean = false,
     @SerialName("rank_global") val rankGlobal: Int = 0,
     @SerialName("is_replay") val isReplay: Boolean = false,
-    @SerialName("next_quiz_id") val nextQuizId: String? = null
+    @SerialName("next_quiz_id") val nextQuizId: String? = null,
+    @SerialName("iq_score") val iqScore: Int? = null
 )

@@ -1,15 +1,50 @@
+# ── Build outputs ───────────────────────────────────────────
+**/build/
+build/
+
+# ── Gradle ──────────────────────────────────────────────────
+.gradle/
+gradle/wrapper/gradle-wrapper.jar
+
+# ── Kotlin Multiplatform caches ─────────────────────────────
+.kotlin/
+
+# ── IDE — IntelliJ / Android Studio ─────────────────────────
+# Ignore everything except the few project-level files worth sharing
+.idea/*
+!.idea/.name
+!.idea/gradle.xml
+!.idea/compiler.xml
+!.idea/kotlinc.xml
+!.idea/misc.xml
+!.idea/.gitignore
+
+# ── Module metadata ─────────────────────────────────────────
 *.iml
-.gradle
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
+
+# ── Local properties (SDK paths, machine-specific) ──────────
+local.properties
+
+# ── macOS ───────────────────────────────────────────────────
 .DS_Store
-/build
+.AppleDouble
+.LSOverride
+
+# ── Android-specific ────────────────────────────────────────
 /captures
 .externalNativeBuild
 .cxx
-local.properties
+*.apk
+*.aab
+*.ap_
+*.dex
+
+# ── iOS / Xcode (if iosApp module is added later) ──────────
+iosApp/Pods/
+iosApp/*.xcworkspace/xcuserdata/
+iosApp/*.xcodeproj/xcuserdata/
+iosApp/*.xcodeproj/project.xcworkspace/xcshareddata/
+*.xcuserstate
+
+# ── Claude Code local config ───────────────────────────────
+.claude/

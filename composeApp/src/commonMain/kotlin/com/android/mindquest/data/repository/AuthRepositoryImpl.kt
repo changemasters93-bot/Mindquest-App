@@ -1,6 +1,8 @@
 package com.android.mindquest.data.repository
 
 import com.android.mindquest.core.constants.AppConstants
+import com.android.mindquest.core.util.AppLogger
+import com.android.mindquest.core.util.ErrorMapper
 import com.android.mindquest.core.util.Resource
 import com.android.mindquest.data.mock.MockDataSource
 import com.android.mindquest.data.remote.ApiService
@@ -16,47 +18,70 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
 
 class AuthRepositoryImpl(
     private val supabaseClient: SupabaseClient,
     private val apiService: ApiService
 ) : AuthRepository {
 
+    // ── Sign-in methods ──────────────────────────────────────────────────
+
     override suspend fun signInWithGoogle(): Resource<User> {
+        AppLogger.d("MQ_AUTH", "AuthRepo.signInWithGoogle() called, USE_MOCK_DATA=${AppConstants.USE_MOCK_DATA}")
         return try {
             if (AppConstants.USE_MOCK_DATA) {
                 Resource.Success(MockDataSource.mockUser())
             } else {
+                AppLogger.d("MQ_AUTH", "AuthRepo: calling supabaseClient.auth.signInWith(Google)...")
                 supabaseClient.auth.signInWith(Google)
                 val session = supabaseClient.auth.currentSessionOrNull()
-                    ?: return Resource.Error("Google sign-in failed: no session returned")
+                    ?: return Resource.Error("Sign-in failed. Please try again.")
                 val userId = session.user?.id
-                    ?: return Resource.Error("Google sign-in failed: no user ID")
-                val profile = apiService.getProfile(userId)
+                    ?: return Resource.Error("Sign-in failed. Please try again.")
+
+                // Try to fetch existing profile; null for first-time users
+                val profile = try { apiService.getProfile(userId) } catch (_: Exception) { null }
+
+                val googleSub = session.user?.identities
+                    ?.find { it.provider == "google" }?.identityId
+
                 Resource.Success(
-                    User(
-                        id = userId,
-                        displayName = profile.user.displayName,
-                        avatarId = profile.user.avatarId,
-                        gradeId = profile.user.gradeId,
-                        gradeLabel = profile.user.gradeLabel,
-                        authProvider = profile.user.authProvider,
-                        isAnonymous = false,
-                        countryName = profile.user.countryName,
-                        cityName = profile.user.cityName,
-                        schoolName = profile.user.schoolName
-                    )
+                    if (profile != null) {
+                        User(
+                            id = userId,
+                            displayName = profile.user.displayName,
+                            avatarId = profile.user.avatarId,
+                            gradeId = profile.user.gradeId,
+                            gradeLabel = profile.user.gradeLabel,
+                            authProvider = profile.user.authProvider,
+                            isAnonymous = false,
+                            countryName = profile.user.countryName,
+                            cityName = profile.user.cityName,
+                            schoolName = profile.user.schoolName
+                        )
+                    } else {
+                        // New user — return minimal auth-only User.
+                        // Profile will be created via upsertUserRow() after onboarding.
+                        User(
+                            id = userId,
+                            displayName = "",
+                            avatarId = 1,
+                            gradeId = "",
+                            authProvider = "google",
+                            isAnonymous = false
+                        )
+                    }
                 )
             }
         } catch (e: Exception) {
-            Resource.Error(
-                message = e.message ?: "Google sign-in failed",
-                throwable = e
-            )
+            AppLogger.e("AuthRepo", "Google sign-in failed", e)
+            Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
     }
 
     override suspend fun signInAnonymously(): Resource<User> {
+        AppLogger.d("MQ_AUTH", "AuthRepo.signInAnonymously() called, USE_MOCK_DATA=${AppConstants.USE_MOCK_DATA}")
         return try {
             if (AppConstants.USE_MOCK_DATA) {
                 Resource.Success(
@@ -68,11 +93,20 @@ class AuthRepositoryImpl(
                     )
                 )
             } else {
+                AppLogger.d("MQ_AUTH", "AuthRepo: calling supabaseClient.auth.signInAnonymously()...")
                 supabaseClient.auth.signInAnonymously()
+                AppLogger.d("MQ_AUTH", "AuthRepo: signInAnonymously returned, getting session...")
                 val session = supabaseClient.auth.currentSessionOrNull()
-                    ?: return Resource.Error("Anonymous sign-in failed: no session returned")
+                if (session == null) {
+                    AppLogger.e("MQ_AUTH", "AuthRepo: session is NULL after signInAnonymously!")
+                    return Resource.Error("Sign-in failed. Please try again.")
+                }
                 val userId = session.user?.id
-                    ?: return Resource.Error("Anonymous sign-in failed: no user ID")
+                if (userId == null) {
+                    AppLogger.e("MQ_AUTH", "AuthRepo: userId is NULL from session!")
+                    return Resource.Error("Sign-in failed. Please try again.")
+                }
+                AppLogger.d("MQ_AUTH", "AuthRepo: signInAnonymously SUCCESS, userId=$userId")
                 Resource.Success(
                     User(
                         id = userId,
@@ -85,10 +119,8 @@ class AuthRepositoryImpl(
                 )
             }
         } catch (e: Exception) {
-            Resource.Error(
-                message = e.message ?: "Anonymous sign-in failed",
-                throwable = e
-            )
+            AppLogger.e("AuthRepo", "Anonymous sign-in failed", e)
+            Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
     }
 
@@ -103,10 +135,8 @@ class AuthRepositoryImpl(
                 Resource.Success(Unit)
             }
         } catch (e: Exception) {
-            Resource.Error(
-                message = e.message ?: "Failed to send OTP",
-                throwable = e
-            )
+            AppLogger.e("AuthRepo", "Send OTP failed", e)
+            Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
     }
 
@@ -123,64 +153,85 @@ class AuthRepositoryImpl(
                     token = otp
                 )
                 val session = supabaseClient.auth.currentSessionOrNull()
-                    ?: return Resource.Error("OTP verification failed: no session")
+                    ?: return Resource.Error("Verification failed. Please try again.")
                 val userId = session.user?.id
-                    ?: return Resource.Error("OTP verification failed: no user ID")
-                val profile = apiService.getProfile(userId)
+                    ?: return Resource.Error("Verification failed. Please try again.")
+
+                // Try to fetch existing profile; null for first-time users
+                val profile = try { apiService.getProfile(userId) } catch (_: Exception) { null }
+
                 Resource.Success(
-                    User(
-                        id = userId,
-                        displayName = profile.user.displayName,
-                        avatarId = profile.user.avatarId,
-                        gradeId = profile.user.gradeId,
-                        gradeLabel = profile.user.gradeLabel,
-                        authProvider = profile.user.authProvider,
-                        isAnonymous = false,
-                        countryName = profile.user.countryName,
-                        cityName = profile.user.cityName,
-                        schoolName = profile.user.schoolName
-                    )
+                    if (profile != null) {
+                        User(
+                            id = userId,
+                            displayName = profile.user.displayName,
+                            avatarId = profile.user.avatarId,
+                            gradeId = profile.user.gradeId,
+                            gradeLabel = profile.user.gradeLabel,
+                            authProvider = profile.user.authProvider,
+                            isAnonymous = false,
+                            countryName = profile.user.countryName,
+                            cityName = profile.user.cityName,
+                            schoolName = profile.user.schoolName
+                        )
+                    } else {
+                        User(
+                            id = userId,
+                            displayName = "",
+                            avatarId = 1,
+                            gradeId = "",
+                            authProvider = "phone",
+                            isAnonymous = false
+                        )
+                    }
                 )
             }
         } catch (e: Exception) {
-            Resource.Error(
-                message = e.message ?: "OTP verification failed",
-                throwable = e
-            )
+            AppLogger.e("AuthRepo", "OTP verification failed", e)
+            Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
     }
 
-    override suspend fun linkAccountWithGoogle(): Resource<Unit> {
+    // ── User row creation (guide §2.2) ───────────────────────────────────
+
+    override suspend fun upsertUserRow(
+        userId: String,
+        displayName: String,
+        avatarId: Int,
+        gradeId: String,
+        authProvider: String,
+        countryId: String?,
+        cityId: String?,
+        schoolName: String?,
+        googleSub: String?,
+    ): Resource<Unit> {
         return try {
             if (AppConstants.USE_MOCK_DATA) {
                 Resource.Success(Unit)
             } else {
-                supabaseClient.auth.linkIdentity(Google)
-                Resource.Success(Unit)
-            }
-        } catch (e: Exception) {
-            Resource.Error(
-                message = e.message ?: "Failed to link Google account",
-                throwable = e
-            )
-        }
-    }
-
-    override suspend fun linkAccountWithPhone(phoneNumber: String): Resource<Unit> {
-        return try {
-            if (AppConstants.USE_MOCK_DATA) {
-                Resource.Success(Unit)
-            } else {
-                supabaseClient.auth.updateUser {
-                    this.phone = phoneNumber
+                if (userId.isBlank()) {
+                    AppLogger.e("AuthRepo", "Upsert skipped — userId is blank")
+                    return Resource.Error("Sign-in failed. Please try again.")
                 }
+                val data = buildJsonObject {
+                    put("id", userId)
+                    put("display_name", displayName.ifBlank { "Player" })
+                    put("avatar_id", avatarId)
+                    put("grade_id", gradeId)
+                    put("auth_provider", authProvider)
+                    countryId?.takeIf { it.isNotBlank() }?.let { put("country_id", it) }
+                    cityId?.takeIf { it.isNotBlank() }?.let { put("city_id", it) }
+                    schoolName?.takeIf { it.isNotBlank() }?.let { put("school_name", it) }
+                    googleSub?.let { put("google_sub", it) }
+                }
+                AppLogger.d("MQ_AUTH", "AuthRepo: upsertUser data=$data")
+                apiService.upsertUser(data)
+                AppLogger.d("MQ_AUTH", "AuthRepo: upsertUser SUCCESS")
                 Resource.Success(Unit)
             }
         } catch (e: Exception) {
-            Resource.Error(
-                message = e.message ?: "Failed to link phone number",
-                throwable = e
-            )
+            AppLogger.e("AuthRepo", "Upsert user row failed", e)
+            Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
     }
 
@@ -198,12 +249,44 @@ class AuthRepositoryImpl(
                 Resource.Success(Unit)
             }
         } catch (e: Exception) {
-            Resource.Error(
-                message = e.message ?: "Failed to create profile",
-                throwable = e
-            )
+            AppLogger.e("AuthRepo", "Create profile failed", e)
+            Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
     }
+
+    // ── Account linking ──────────────────────────────────────────────────
+
+    override suspend fun linkAccountWithGoogle(): Resource<Unit> {
+        return try {
+            if (AppConstants.USE_MOCK_DATA) {
+                Resource.Success(Unit)
+            } else {
+                supabaseClient.auth.linkIdentity(Google)
+                Resource.Success(Unit)
+            }
+        } catch (e: Exception) {
+            AppLogger.e("AuthRepo", "Link Google account failed", e)
+            Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
+        }
+    }
+
+    override suspend fun linkAccountWithPhone(phoneNumber: String): Resource<Unit> {
+        return try {
+            if (AppConstants.USE_MOCK_DATA) {
+                Resource.Success(Unit)
+            } else {
+                supabaseClient.auth.updateUser {
+                    this.phone = phoneNumber
+                }
+                Resource.Success(Unit)
+            }
+        } catch (e: Exception) {
+            AppLogger.e("AuthRepo", "Link phone number failed", e)
+            Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
+        }
+    }
+
+    // ── Profile update ───────────────────────────────────────────────────
 
     override suspend fun updateProfile(userId: String, fields: Map<String, Any>): Resource<Unit> {
         return try {
@@ -226,12 +309,12 @@ class AuthRepositoryImpl(
                 Resource.Success(Unit)
             }
         } catch (e: Exception) {
-            Resource.Error(
-                message = e.message ?: "Failed to update profile",
-                throwable = e
-            )
+            AppLogger.e("AuthRepo", "Update profile failed", e)
+            Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
     }
+
+    // ── Session queries ──────────────────────────────────────────────────
 
     override suspend fun getCurrentUser(): User? {
         return try {
@@ -254,7 +337,8 @@ class AuthRepositoryImpl(
                     schoolName = profile.user.schoolName
                 )
             }
-        } catch (_: Exception) {
+        } catch (e: Exception) {
+            AppLogger.e("AuthRepo", "Get current user failed", e)
             null
         }
     }
@@ -277,10 +361,8 @@ class AuthRepositoryImpl(
                 Resource.Success(Unit)
             }
         } catch (e: Exception) {
-            Resource.Error(
-                message = e.message ?: "Sign out failed",
-                throwable = e
-            )
+            AppLogger.e("AuthRepo", "Sign out failed", e)
+            Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
     }
 
@@ -306,7 +388,8 @@ class AuthRepositoryImpl(
                                 cityName = profile.user.cityName,
                                 schoolName = profile.user.schoolName
                             )
-                        } catch (_: Exception) {
+                        } catch (e: Exception) {
+                            AppLogger.e("AuthRepo", "Observe auth - get profile failed", e)
                             null
                         }
                     }

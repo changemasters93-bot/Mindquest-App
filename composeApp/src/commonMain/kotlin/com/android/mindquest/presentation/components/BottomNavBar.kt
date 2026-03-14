@@ -37,9 +37,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import mindquest.composeapp.generated.resources.*
+import org.jetbrains.compose.resources.StringResource
+import org.jetbrains.compose.resources.stringResource
 
 private val PrimaryColor = Color(0xFF4F46E5)
 private val InactiveGray = Color(0xFF94A3B8)
@@ -48,15 +55,15 @@ private val NavBarBg = Color.White.copy(alpha = 0.98f)
 
 data class NavItem(
     val route: String,
-    val label: String,
+    val labelRes: StringResource,
     val emoji: String,
 )
 
 private val navItems = listOf(
-    NavItem("home", "Home", "\uD83C\uDFE0"),
-    NavItem("leaderboard", "Leaderboard", "\uD83C\uDFC6"),
-    NavItem("stats", "Stats", "\uD83D\uDCCA"),
-    NavItem("profile", "Profile", "\uD83D\uDC64"),
+    NavItem("home", Res.string.nav_home, "\uD83C\uDFE0"),
+    NavItem("leaderboard", Res.string.nav_leaderboard, "\uD83C\uDFC6"),
+    NavItem("stats", Res.string.nav_stats, "\uD83D\uDCCA"),
+    NavItem("profile", Res.string.nav_profile, "\uD83D\uDC64"),
 )
 
 @Composable
@@ -118,9 +125,14 @@ private fun NavBarItem(
     )
 
     val interactionSource = remember { MutableInteractionSource() }
+    val label = stringResource(item.labelRes)
 
     Column(
         modifier = Modifier
+            .semantics {
+                role = Role.Tab
+                contentDescription = label
+            }
             .clickable(
                 interactionSource = interactionSource,
                 indication = null,
@@ -148,7 +160,7 @@ private fun NavBarItem(
         }
 
         Text(
-            text = item.label,
+            text = label,
             fontSize = 11.sp,
             fontWeight = if (isActive) FontWeight.SemiBold else FontWeight.Normal,
             color = textColor,
