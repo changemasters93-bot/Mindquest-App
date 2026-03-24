@@ -238,20 +238,12 @@ class AuthViewModel(
     }
 
     private suspend fun awaitGrades(): List<Grade> {
-        if (_grades.value.isNotEmpty()) {
-            AppLogger.d("MQ_AUTH", "awaitGrades() — grades already loaded (${_grades.value.size} items)")
-            return _grades.value
-        }
-        val startTime = System.currentTimeMillis()
-        AppLogger.d("MQ_TIMING", "awaitGrades() START — grades not yet loaded, waiting (max 10s)...")
+        if (_grades.value.isNotEmpty()) return _grades.value
+        AppLogger.d("MQ_AUTH", "awaitGrades() — waiting (max 10s)...")
         return withTimeoutOrNull(10_000L) {
             _grades.first { it.isNotEmpty() }
-        }?.also {
-            val duration = System.currentTimeMillis() - startTime
-            AppLogger.d("MQ_TIMING", "awaitGrades() SUCCESS in ${duration}ms (${it.size} grades)")
         } ?: run {
-            val duration = System.currentTimeMillis() - startTime
-            AppLogger.e("MQ_TIMING", "awaitGrades() TIMED OUT after ${duration}ms")
+            AppLogger.e("MQ_AUTH", "awaitGrades() TIMED OUT")
             emptyList()
         }
     }
@@ -268,17 +260,8 @@ class AuthViewModel(
     }
 
     private suspend fun resolveProfileIds(profile: OnboardingProfile): OnboardingProfile {
-        val startTime = System.currentTimeMillis()
-        AppLogger.d("MQ_TIMING", "resolveProfileIds() START")
-
-        val gradesStart = System.currentTimeMillis()
         val grades = awaitGrades()
-        val gradesDuration = System.currentTimeMillis() - gradesStart
-
-        val countriesStart = System.currentTimeMillis()
         val countries = awaitCountries()
-        val countriesDuration = System.currentTimeMillis() - countriesStart
-
         val cities = _cities.value
 
         val resolvedGradeId = if (profile.gradeId.isNotBlank()) profile.gradeId
@@ -288,8 +271,7 @@ class AuthViewModel(
         val resolvedCityId = if (!profile.cityId.isNullOrBlank()) profile.cityId
             else cities.find { it.name == profile.cityName }?.id
 
-        val totalDuration = System.currentTimeMillis() - startTime
-        AppLogger.d("MQ_TIMING", "resolveProfileIds() DONE in ${totalDuration}ms: grade=${profile.gradeLabel}→$resolvedGradeId, country=${profile.countryName}→$resolvedCountryId, city=${profile.cityName}→$resolvedCityId (grades:${gradesDuration}ms, countries:${countriesDuration}ms)")
+        AppLogger.d("MQ_AUTH", "resolveProfileIds: grade='${profile.gradeLabel}'→'$resolvedGradeId'")
         return profile.copy(gradeId = resolvedGradeId, countryId = resolvedCountryId, cityId = resolvedCityId)
     }
 
@@ -345,21 +327,16 @@ class AuthViewModel(
             return
         }
         isGoogleSignInInProgress = true
-        val signInStartTime = System.currentTimeMillis()
-        AppLogger.d("MQ_AUTH", "signInWithGoogle() START, profile=$profile")
+        AppLogger.d("MQ_AUTH", "signInWithGoogle() called, profile=$profile")
         viewModelScope.launch(exceptionHandler) {
             _authState.update { UiState.Empty }
 
             val resolvedProfile = if (profile != null) {
-                AppLogger.d("MQ_TIMING", "signInWithGoogle() resolving profile IDs...")
                 val resolved = resolveProfileIds(profile)
                 if (resolved.gradeId.isBlank()) {
-                    AppLogger.e("MQ_TIMING", "signInWithGoogle() FAILED: grades not loaded (timeout)")
                     _authState.update { UiState.Error("Grades not loaded yet. Please try again.") }
-                    isGoogleSignInInProgress = false
                     return@launch
                 }
-                AppLogger.d("MQ_TIMING", "signInWithGoogle() profile IDs resolved")
                 resolved
             } else null
 
@@ -371,18 +348,12 @@ class AuthViewModel(
                 delay(60_000)
                 if (_authState.value is UiState.Loading && pendingGoogleProfile != null) {
                     pendingGoogleProfile = null
-                    val elapsedMs = System.currentTimeMillis() - signInStartTime
-                    AppLogger.e("MQ_TIMING", "signInWithGoogle() TIMED OUT after ${elapsedMs}ms")
                     _authState.update { UiState.Error("Google sign-in timed out. Please try again.") }
                 }
             }
 
             try {
-                val oauthStartTime = System.currentTimeMillis()
-                AppLogger.d("MQ_TIMING", "signInWithGoogle() calling authRepository.signInWithGoogle()...")
                 val result = authRepository.signInWithGoogle()
-                val oauthDuration = System.currentTimeMillis() - oauthStartTime
-                AppLogger.d("MQ_TIMING", "signInWithGoogle() OAuth took ${oauthDuration}ms")
                 when (result) {
                     is Resource.Success -> {
                         val user = result.data ?: return@launch
@@ -457,14 +428,10 @@ class AuthViewModel(
             // New user signup — create full user row with onboarding data
             val displayName = profile.displayName.ifBlank { user.displayName }
             // Get fresh email from session (in case user.email is empty)
-            val emailExtractionStart = System.currentTimeMillis()
             val sessionEmail = authRepository.getCurrentUserEmail()
-            val emailExtractionTime = System.currentTimeMillis() - emailExtractionStart
             val emailToSave = user.email?.takeIf { it.isNotBlank() } ?: sessionEmail
-            AppLogger.d("MQ_TIMING", "Google: email extraction took ${emailExtractionTime}ms: user.email='${user.email}', sessionEmail='${sessionEmail?.takeIf { it.isNotBlank() } ?: "NULL"}', emailToSave='${emailToSave?.takeIf { it.isNotBlank() } ?: "NULL"}'")
+            AppLogger.d("MQ_AUTH", "Google: upsertUserRow — user.email='${user.email}', sessionEmail='${sessionEmail?.takeIf { it.isNotBlank() } ?: "NULL"}', emailToSave='${emailToSave?.takeIf { it.isNotBlank() } ?: "NULL"}'")
 
-            val upsertStartTime = System.currentTimeMillis()
-            AppLogger.d("MQ_TIMING", "Google: upsertUserRow() START for new user")
             val upsertResult = authRepository.upsertUserRow(
                 userId = user.id,
                 displayName = displayName,
@@ -476,17 +443,14 @@ class AuthViewModel(
                 schoolName = profile.schoolName,
                 email = emailToSave,
             )
-            val upsertDuration = System.currentTimeMillis() - upsertStartTime
-            AppLogger.d("MQ_TIMING", "Google: upsertUserRow() DONE in ${upsertDuration}ms, result = $upsertResult")
+            AppLogger.d("MQ_AUTH", "Google: upsertUserRow (new user) result = $upsertResult")
         } else {
             // Returning user login — update auth_provider to google
             if (user.id.isNotBlank()) {
                 try {
                     AppLogger.d("MQ_AUTH", "Google: returning user detected, updating auth_provider to 'google'")
-                    val updateStart = System.currentTimeMillis()
                     authRepository.updateProfile(user.id, mapOf("auth_provider" to "google"))
-                    val updateDuration = System.currentTimeMillis() - updateStart
-                    AppLogger.d("MQ_TIMING", "Google: auth_provider update took ${updateDuration}ms for returning user")
+                    AppLogger.d("MQ_AUTH", "Google: auth_provider updated to 'google' for returning user")
                 } catch (e: Exception) {
                     AppLogger.e("MQ_AUTH", "Google: failed to update auth_provider", e)
                 }
@@ -496,7 +460,7 @@ class AuthViewModel(
         sessionPrefs.isLoggedIn = true
         sessionPrefs.lastAuthProvider = "google"
         _authState.update { UiState.Success(user) }
-        AppLogger.d("MQ_TIMING", "Google: authState → Success")
+        AppLogger.d("MQ_AUTH", "Google: authState → Success")
     }
 
     private fun observeSessionForGoogleCallback() {
@@ -527,8 +491,7 @@ class AuthViewModel(
                 // Case 2: Account linking (anonymous → Google)
                 val linkProvider = pendingLinkProvider
                 if (linkProvider != null && _authState.value is UiState.Loading) {
-                    val linkStartTime = System.currentTimeMillis()
-                    AppLogger.d("MQ_AUTH", "Session observer: account linking START for provider=$linkProvider")
+                    AppLogger.d("MQ_AUTH", "Session observer: account linking completed for provider=$linkProvider")
                     pendingLinkProvider = null
                     try {
                         val currentUser = authRepository.getCurrentUser()
@@ -539,12 +502,7 @@ class AuthViewModel(
                                 else -> "google_and_phone"
                             }
                             // Get email from Supabase session for linking (FIX #1)
-                            val emailStart = System.currentTimeMillis()
                             val email = authRepository.getCurrentUserEmail()
-                            val emailDuration = System.currentTimeMillis() - emailStart
-                            AppLogger.d("MQ_TIMING", "Session observer: email extraction took ${emailDuration}ms, email='$email'")
-
-                            val upsertStart = System.currentTimeMillis()
                             authRepository.upsertUserRow(
                                 userId = currentUser.id,
                                 displayName = currentUser.displayName,
@@ -553,18 +511,14 @@ class AuthViewModel(
                                 authProvider = newProvider,
                                 email = email,
                             )
-                            val upsertDuration = System.currentTimeMillis() - upsertStart
-                            AppLogger.d("MQ_TIMING", "Session observer: upsertUserRow took ${upsertDuration}ms, provider='$newProvider'")
+                            AppLogger.d("MQ_AUTH", "Session observer: auth_provider → '$newProvider', email='$email'")
                         }
                         sessionPrefs.lastAuthProvider = linkProvider
                         _isLinkingSheetVisible.update { false }
                         _authState.update { UiState.Success(null) }
-                        val totalDuration = System.currentTimeMillis() - linkStartTime
-                        AppLogger.d("MQ_TIMING", "Session observer: linking COMPLETE in ${totalDuration}ms")
+                        AppLogger.d("MQ_AUTH", "Session observer: linking SUCCESS")
                     } catch (e: Exception) {
                         AppLogger.e("MQ_AUTH", "Session observer: linking failed", e)
-                        val failDuration = System.currentTimeMillis() - linkStartTime
-                        AppLogger.e("MQ_TIMING", "Session observer: linking FAILED after ${failDuration}ms: ${e.message}")
                         _authState.update { UiState.Error("Account linking failed. Please try again.") }
                     }
                 }

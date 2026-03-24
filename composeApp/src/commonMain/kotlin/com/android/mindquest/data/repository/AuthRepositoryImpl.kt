@@ -241,7 +241,6 @@ class AuthRepositoryImpl(
             if (AppConstants.USE_MOCK_DATA) {
                 Resource.Success(Unit)
             } else {
-                val startTime = System.currentTimeMillis()
                 if (userId.isBlank()) {
                     AppLogger.e("AuthRepo", "Upsert skipped — userId is blank")
                     return Resource.Error("Sign-in failed. Please try again.")
@@ -259,16 +258,15 @@ class AuthRepositoryImpl(
                     email?.takeIf { it.isNotBlank() }?.let { put("email", it) }
                     phone?.takeIf { it.isNotBlank() }?.let { put("phone", it) }
                 }
-                AppLogger.d("MQ_DB", "upsertUserRow: preparing data for userId=$userId, authProvider=$authProvider, email='$email'")
-                AppLogger.d("MQ_TIMING", "upsertUserRow: calling apiService.upsertUser()...")
+                AppLogger.d("MQ_DB", "upsertUserRow: preparing data for userId=$userId, authProvider=$authProvider, email=$email")
+                AppLogger.d("MQ_AUTH", "AuthRepo: upsertUser data=$data")
                 apiService.upsertUser(data)
-                val duration = System.currentTimeMillis() - startTime
-                AppLogger.d("MQ_TIMING", "upsertUserRow: SUCCESS in ${duration}ms")
+                AppLogger.d("MQ_DB", "upsertUserRow: SUCCESS - user row created/updated")
+                AppLogger.d("MQ_AUTH", "AuthRepo: upsertUser SUCCESS")
                 Resource.Success(Unit)
             }
         } catch (e: Exception) {
-            val duration = System.currentTimeMillis() - startTime
-            AppLogger.e("MQ_TIMING", "upsertUserRow: FAILED after ${duration}ms - ${e.message}", e)
+            AppLogger.e("AuthRepo", "Upsert user row failed", e)
             Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
     }
@@ -324,32 +322,23 @@ class AuthRepositoryImpl(
                 AppLogger.d("MQ_DB", "linkAccountWithGoogle: MOCK MODE")
                 Resource.Success(Unit)
             } else {
-                val startTime = System.currentTimeMillis()
-                AppLogger.d("MQ_DB", "linkAccountWithGoogle: START — calling supabaseClient.auth.linkIdentity(Google)...")
+                AppLogger.d("MQ_DB", "linkAccountWithGoogle: calling supabaseClient.auth.linkIdentity(Google)...")
                 supabaseClient.auth.linkIdentity(Google)
-                AppLogger.d("MQ_DB", "linkAccountWithGoogle: identity linked, extracting email and updating database...")
+                AppLogger.d("MQ_DB", "linkAccountWithGoogle: identity linked, updating database...")
 
-                // Get current user and update auth_provider + email in database
+                // Get current user and update auth_provider in database
                 val session = supabaseClient.auth.currentSessionOrNull()
                 val userId = session?.user?.id
                 if (userId != null) {
                     val newAuthProvider = determineAuthProvider()
-
                     // CRITICAL FIX: Extract email from session and pass it to updateProfile
-                    val emailStart = System.currentTimeMillis()
                     val email = getCurrentUserEmail()
-                    val emailDuration = System.currentTimeMillis() - emailStart
-                    AppLogger.d("MQ_TIMING", "linkAccountWithGoogle: email extraction took ${emailDuration}ms, email='$email'")
-
-                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: updating auth_provider to=$newAuthProvider and email='$email' for userId=$userId")
+                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: updating auth_provider to=$newAuthProvider and email for userId=$userId")
                     try {
-                        val updateStart = System.currentTimeMillis()
                         apiService.updateProfile(userId, buildJsonObject {
                             put("auth_provider", JsonPrimitive(newAuthProvider))
                             email?.takeIf { it.isNotBlank() }?.let { put("email", JsonPrimitive(it)) }
                         })
-                        val updateDuration = System.currentTimeMillis() - updateStart
-                        AppLogger.d("MQ_TIMING", "linkAccountWithGoogle: updateProfile took ${updateDuration}ms")
                         AppLogger.d("MQ_DB", "linkAccountWithGoogle: auth_provider updated to=$newAuthProvider and email saved")
                     } catch (updateError: Exception) {
                         AppLogger.e("MQ_DB", "linkAccountWithGoogle: updateProfile FAILED: ${updateError.message}", updateError)
@@ -359,8 +348,7 @@ class AuthRepositoryImpl(
                     AppLogger.e("MQ_DB", "linkAccountWithGoogle: userId is NULL - skipping db update")
                 }
 
-                val totalDuration = System.currentTimeMillis() - startTime
-                AppLogger.d("MQ_TIMING", "linkAccountWithGoogle: SUCCESS in ${totalDuration}ms")
+                AppLogger.d("MQ_DB", "linkAccountWithGoogle: SUCCESS")
                 Resource.Success(Unit)
             }
         } catch (e: Exception) {
