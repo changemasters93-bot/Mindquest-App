@@ -14,6 +14,7 @@ import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
 import io.github.jan.supabase.auth.providers.builtin.Phone
 import io.github.jan.supabase.auth.status.SessionStatus
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
@@ -324,18 +325,38 @@ class AuthRepositoryImpl(
             } else {
                 AppLogger.d("MQ_DB", "linkAccountWithGoogle: calling supabaseClient.auth.linkIdentity(Google)...")
                 supabaseClient.auth.linkIdentity(Google)
-                AppLogger.d("MQ_DB", "linkAccountWithGoogle: identity linked, refreshing session...")
+                AppLogger.d("MQ_DB", "linkAccountWithGoogle: identity linked, waiting for session sync...")
 
-                // Refresh session to ensure email and identities are synced
+                // CRITICAL FIX: Add delay and retry logic for email extraction
+                // The session may not be immediately updated after linkIdentity() call
+                // Retry up to 3 times with 500ms delay between attempts
+                var email: String? = null
+                var emailExtracted = false
+                val maxRetries = 3
+                val delayMs = 500L
+
+                for (attempt in 1..maxRetries) {
+                    if (attempt > 1) {
+                        delay(delayMs)
+                    }
+
+                    email = getCurrentUserEmail()
+                    if (!email.isNullOrBlank()) {
+                        emailExtracted = true
+                        AppLogger.d("MQ_DB", "linkAccountWithGoogle: email extracted on attempt $attempt")
+                        break
+                    } else {
+                        AppLogger.d("MQ_DB", "linkAccountWithGoogle: email still NULL/BLANK on attempt $attempt, retrying...")
+                    }
+                }
+
+                // Continue with update even if email extraction failed
                 val session = supabaseClient.auth.currentSessionOrNull()
                 val userId = session?.user?.id
                 if (userId != null) {
                     val newAuthProvider = determineAuthProvider()
-
-                    // CRITICAL FIX: Extract email from session with unmasked logging
-                    val email = getCurrentUserEmail()
-                    val emailStatus = if (email.isNullOrBlank()) "NULL/BLANK" else "LENGTH=${email.length}"
-                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: email extraction result: $emailStatus")
+                    val emailStatus = if (email.isNullOrBlank()) "NULL/BLANK (after $maxRetries attempts)" else "LENGTH=${email.length}"
+                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: final email extraction result: $emailStatus")
 
                     AppLogger.d("MQ_DB", "linkAccountWithGoogle: updating auth_provider=$newAuthProvider, email=$emailStatus for userId=$userId")
                     try {

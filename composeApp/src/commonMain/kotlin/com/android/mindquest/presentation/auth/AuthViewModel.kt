@@ -494,29 +494,17 @@ class AuthViewModel(
                     AppLogger.d("MQ_AUTH", "Session observer: account linking completed for provider=$linkProvider")
                     pendingLinkProvider = null
                     try {
-                        val currentUser = authRepository.getCurrentUser()
-                        if (currentUser != null) {
-                            val newProvider = when {
-                                linkProvider == "google" && currentUser.authProvider == "phone" -> "google_and_phone"
-                                linkProvider == "google" && currentUser.authProvider == "anonymous" -> "google"
-                                else -> "google_and_phone"
-                            }
-                            // Get email from Supabase session for linking (FIX #1)
-                            val email = authRepository.getCurrentUserEmail()
-                            authRepository.upsertUserRow(
-                                userId = currentUser.id,
-                                displayName = currentUser.displayName,
-                                avatarId = currentUser.avatarId,
-                                gradeId = currentUser.gradeId,
-                                authProvider = newProvider,
-                                email = email,
-                            )
-                            AppLogger.d("MQ_AUTH", "Session observer: auth_provider → '$newProvider', email='$email'")
-                        }
+                        // ⚠️ CRITICAL FIX: DO NOT call upsertUserRow() after linking!
+                        // The linkAccountWithGoogle() function already updated the database via updateProfile() RPC.
+                        // Calling upsertUserRow() here tries to directly update the users table with the OLD anonymous JWT,
+                        // which violates RLS policy since the user now has a linked provider.
+                        // Solution: Skip direct table upsert; the RPC call in linkAccountWithGoogle() already handled it.
+
+                        AppLogger.d("MQ_AUTH", "Session observer: linking RPC already updated database, skipping direct table upsert")
                         sessionPrefs.lastAuthProvider = linkProvider
                         _isLinkingSheetVisible.update { false }
                         _authState.update { UiState.Success(null) }
-                        AppLogger.d("MQ_AUTH", "Session observer: linking SUCCESS")
+                        AppLogger.d("MQ_AUTH", "Session observer: linking SUCCESS - database updated via RPC in linkAccountWithGoogle()")
                     } catch (e: Exception) {
                         AppLogger.e("MQ_AUTH", "Session observer: linking failed", e)
                         _authState.update { UiState.Error("Account linking failed. Please try again.") }
