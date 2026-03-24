@@ -436,11 +436,14 @@ class ApiService(private val client: SupabaseClient) {
      */
     suspend fun upsertUser(data: JsonObject) {
         AppLogger.d("MQ_API", "🔵 TABLE UPSERT: users | Columns: ${data.keys.joinToString(",")}")
+        val startTime = System.currentTimeMillis()
         return try {
             client.postgrest.from("users").upsert(data)
-            AppLogger.d("MQ_API", "✅ TABLE UPSERT: users SUCCESS | userId=${data["id"]}")
+            val duration = System.currentTimeMillis() - startTime
+            AppLogger.d("MQ_TIMING", "✅ TABLE UPSERT: users SUCCESS in ${duration}ms | userId=${data["id"]}")
         } catch (e: Exception) {
-            AppLogger.e("MQ_API", "❌ TABLE UPSERT: users FAILED | Error: ${e.message}", e)
+            val duration = System.currentTimeMillis() - startTime
+            AppLogger.e("MQ_TIMING", "❌ TABLE UPSERT: users FAILED after ${duration}ms | Error: ${e.message}", e)
             throw e
         }
     }
