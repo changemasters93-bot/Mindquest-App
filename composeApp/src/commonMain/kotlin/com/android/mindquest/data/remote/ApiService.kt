@@ -333,7 +333,7 @@ class ApiService(private val client: SupabaseClient) {
                 function = "get_tournament_leaderboard",
                 parameters = params
             ).decodeAs<TournamentLeaderboardResponseDto>()
-            AppLogger.d("MQ_API", "✅ RPC: get_tournament_leaderboard SUCCESS | Response: ${response.entries.size} entries")
+            AppLogger.d("MQ_API", "✅ RPC: get_tournament_leaderboard SUCCESS | Response: ${response.rankedUsers.size} entries")
             response
         } catch (e: Exception) {
             AppLogger.e("MQ_API", "❌ RPC: get_tournament_leaderboard FAILED for tournamentId=$tournamentId | Error: ${e.message}", e)
