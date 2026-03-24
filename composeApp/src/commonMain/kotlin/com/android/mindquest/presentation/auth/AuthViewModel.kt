@@ -170,6 +170,9 @@ class AuthViewModel(
      */
     private var pendingPhoneLinkUser: User? = null
 
+    /** Flag to prevent concurrent Google sign-in attempts (debounce). */
+    private var isGoogleSignInInProgress = false
+
     /** Whether the user has already seen the onboarding slides on this device. */
     val hasSeenOnboarding: Boolean get() = sessionPrefs.hasSeenOnboarding
 
@@ -318,6 +321,12 @@ class AuthViewModel(
     // ── Auth: Google ─────────────────────────────────────────────────────
 
     fun signInWithGoogle(profile: OnboardingProfile? = null) {
+        // Prevent concurrent Google sign-in calls (debounce)
+        if (isGoogleSignInInProgress) {
+            AppLogger.d("MQ_AUTH", "signInWithGoogle() BLOCKED — already in progress")
+            return
+        }
+        isGoogleSignInInProgress = true
         AppLogger.d("MQ_AUTH", "signInWithGoogle() called, profile=$profile")
         viewModelScope.launch(exceptionHandler) {
             _authState.update { UiState.Empty }
@@ -390,12 +399,23 @@ class AuthViewModel(
                         handleGoogleSignInSuccess(user, resolvedProfile)
                     }
                     is Resource.Error -> {
+                        AppLogger.e("MQ_AUTH", "Google: sign-in failed: ${result.message}")
                         _authState.update { UiState.Error(result.message) }
+                        isGoogleSignInInProgress = false
                     }
                     is Resource.Loading -> {}
                 }
             } catch (e: Exception) {
+                AppLogger.e("MQ_AUTH", "Google: exception during sign-in", e)
                 _authState.update { UiState.Error(e.message ?: "Google sign-in failed") }
+                isGoogleSignInInProgress = false
+            } finally {
+                // Reset flag in case of timeout or other edge cases
+                delay(500)
+                if (_authState.value is UiState.Success) {
+                    isGoogleSignInInProgress = false
+                    AppLogger.d("MQ_AUTH", "signInWithGoogle() completed successfully, flag reset")
+                }
             }
         }
     }
