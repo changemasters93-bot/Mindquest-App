@@ -19,6 +19,10 @@ data class UserProfileDto(
     @SerialName("grade_id") val gradeId: String,
     @SerialName("grade_label") val gradeLabel: String = "",
     @SerialName("auth_provider") val authProvider: String,
+    val email: String? = null,
+    val phone: String? = null,
+    @SerialName("country_id") val countryId: String? = null,
+    @SerialName("city_id") val cityId: String? = null,
     @SerialName("country_name") val countryName: String? = null,
     @SerialName("city_name") val cityName: String? = null,
     @SerialName("school_name") val schoolName: String? = null

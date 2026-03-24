@@ -18,6 +18,11 @@ class SessionPrefs(private val settings: Settings = Settings()) {
         get() = settings.getBoolean(KEY_LOGGED_IN, false)
         set(value) { settings.putBoolean(KEY_LOGGED_IN, value) }
 
+    /** `true` once the user has viewed the onboarding slides (persists across sessions). */
+    var hasSeenOnboarding: Boolean
+        get() = settings.getBoolean(KEY_HAS_SEEN_ONBOARDING, false)
+        set(value) { settings.putBoolean(KEY_HAS_SEEN_ONBOARDING, value) }
+
     // ── Daily Challenge Cache ─────────────────────────────────────────
 
     /** Date string (yyyy-MM-dd) when daily challenges were last generated. */
@@ -29,6 +34,11 @@ class SessionPrefs(private val settings: Settings = Settings()) {
     var dailyChallengesJson: String
         get() = settings.getString(KEY_DAILY_CHALLENGES_JSON, "")
         set(value) { settings.putString(KEY_DAILY_CHALLENGES_JSON, value) }
+
+    /** Last auth provider used (google / phone / anonymous). For smart login suggestion. */
+    var lastAuthProvider: String
+        get() = settings.getString(KEY_LAST_AUTH_PROVIDER, "")
+        set(value) { settings.putString(KEY_LAST_AUTH_PROVIDER, value) }
 
     // ── Generic key-value access ────────────────────────────────────
 
@@ -56,7 +66,9 @@ class SessionPrefs(private val settings: Settings = Settings()) {
 
     private companion object {
         const val KEY_LOGGED_IN = "session_logged_in"
+        const val KEY_HAS_SEEN_ONBOARDING = "has_seen_onboarding"
         const val KEY_DAILY_CHALLENGE_DATE = "daily_challenge_date"
         const val KEY_DAILY_CHALLENGES_JSON = "daily_challenges_json"
+        const val KEY_LAST_AUTH_PROVIDER = "last_auth_provider"
     }
 }

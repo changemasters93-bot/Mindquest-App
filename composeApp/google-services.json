@@ -1,0 +1,68 @@
+{
+  "project_info": {
+    "project_number": "774111428139",
+    "project_id": "mindquest-700d1",
+    "storage_bucket": "mindquest-700d1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:774111428139:android:e566aa676353ed9996346e",
+        "android_client_info": {
+          "package_name": "com.android.mindquest"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "774111428139-dv2nhk8c4h5dpe7n0q7qdg2c8fb4edid.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCe7ZtaQYEKS0X7U33_z2-fmVkRF7Klf5Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "774111428139-dv2nhk8c4h5dpe7n0q7qdg2c8fb4edid.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:774111428139:android:df8f74647d179f4196346e",
+        "android_client_info": {
+          "package_name": "com.android.mindquest.debug"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "774111428139-dv2nhk8c4h5dpe7n0q7qdg2c8fb4edid.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCe7ZtaQYEKS0X7U33_z2-fmVkRF7Klf5Y"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "774111428139-dv2nhk8c4h5dpe7n0q7qdg2c8fb4edid.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

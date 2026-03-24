@@ -83,6 +83,10 @@ fun UserProfileDto.toDomain(): User = User(
     gradeLabel = gradeLabel,
     authProvider = authProvider,
     isAnonymous = authProvider == "anonymous",
+    email = email,
+    phone = phone,
+    countryId = countryId,
+    cityId = cityId,
     countryName = countryName,
     cityName = cityName,
     schoolName = schoolName

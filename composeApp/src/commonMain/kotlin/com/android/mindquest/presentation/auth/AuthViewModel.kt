@@ -12,14 +12,18 @@ import com.android.mindquest.domain.model.Country
 import com.android.mindquest.domain.model.Grade
 import com.android.mindquest.domain.model.User
 import com.android.mindquest.domain.repository.AuthRepository
+import com.android.mindquest.domain.repository.ExistingUserInfo
 import com.android.mindquest.domain.repository.ReferenceDataRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 
 enum class AuthScreenState {
     MAIN,
@@ -33,15 +37,49 @@ enum class SessionCheck { CHECKING, LOGGED_IN, NOT_LOGGED_IN }
 
 /**
  * Profile data collected during onboarding (Steps 1 & 2).
- * Passed to auth methods so the ViewModel can create the user row after sign-in.
+ * Label fields carry raw UI selections; VM resolves to IDs via [awaitGrades].
  */
 data class OnboardingProfile(
     val displayName: String,
     val avatarId: Int,
-    val gradeId: String,
+    val gradeId: String = "",
+    val gradeLabel: String = "",
     val countryId: String? = null,
+    val countryName: String? = null,
     val cityId: String? = null,
+    val cityName: String? = null,
     val schoolName: String? = null,
+)
+
+/**
+ * Shown when a duplicate account is detected during sign-in.
+ * The UI can display a "Merge Accounts" or "Create New" prompt.
+ */
+data class MergeSuggestion(
+    val existingUser: ExistingUserInfo,
+    val newUserId: String,
+    val newUserEmail: String? = null,
+    val newUserPhone: String? = null,
+    val trigger: String, // "google_signup", "phone_signup", "guest_upgrade"
+    /** Stashed profile for the new user (if from onboarding). */
+    val pendingProfile: OnboardingProfile? = null,
+    /** Stashed User from the sign-in result. */
+    val pendingUser: User? = null,
+)
+
+/**
+ * Confirmation prompt before linking a provider to the current account.
+ */
+data class LinkConfirmation(
+    val provider: String,
+    val currentAuthProvider: String,
+)
+
+/**
+ * Duplicate email scenario — user tried to sign up but email already exists.
+ */
+data class DuplicateEmailError(
+    val email: String,
 )
 
 class AuthViewModel(
@@ -51,7 +89,7 @@ class AuthViewModel(
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
-        AppLogger.e("AuthViewModel", "Unhandled coroutine exception", throwable as? Exception)
+        AppLogger.e("AuthViewModel", "Unhandled coroutine exception: ${throwable::class.simpleName}: ${throwable.message}", throwable as? Exception)
     }
 
     private val _sessionCheck = MutableStateFlow(SessionCheck.CHECKING)
@@ -81,7 +119,7 @@ class AuthViewModel(
     private val _isLinkingSheetVisible = MutableStateFlow(false)
     val isLinkingSheetVisible: StateFlow<Boolean> = _isLinkingSheetVisible.asStateFlow()
 
-    /** Grades fetched from backend — used by onboarding STEP2 to map labels → IDs. */
+    /** Grades fetched from backend — used by onboarding STEP2. */
     private val _grades = MutableStateFlow<List<Grade>>(emptyList())
     val grades: StateFlow<List<Grade>> = _grades.asStateFlow()
 
@@ -93,15 +131,61 @@ class AuthViewModel(
     private val _cities = MutableStateFlow<List<City>>(emptyList())
     val cities: StateFlow<List<City>> = _cities.asStateFlow()
 
+    // ── Duplicate detection / merge suggestion ──────────────────────────
+
+    private val _mergeSuggestion = MutableStateFlow<MergeSuggestion?>(null)
+    val mergeSuggestion: StateFlow<MergeSuggestion?> = _mergeSuggestion.asStateFlow()
+
+    // ── Link confirmation ────────────────────────────────────────────────
+
+    private val _linkConfirmation = MutableStateFlow<LinkConfirmation?>(null)
+    val linkConfirmation: StateFlow<LinkConfirmation?> = _linkConfirmation.asStateFlow()
+
+    // ── Duplicate email error (FIX #5) ────────────────────────────────────
+
+    private val _duplicateEmailError = MutableStateFlow<DuplicateEmailError?>(null)
+    val duplicateEmailError: StateFlow<DuplicateEmailError?> = _duplicateEmailError.asStateFlow()
+
     /**
      * Temporarily stores the onboarding profile so it's available after
      * OTP verification (since Phone auth has STEP3 → PHONE_AUTH navigation).
      */
     private var pendingProfile: OnboardingProfile? = null
 
+    /**
+     * Stashed onboarding profile for Google OAuth callback.
+     */
+    private var pendingGoogleProfile: OnboardingProfile? = null
+
+    /**
+     * Set when account linking is in progress (browser-based OAuth).
+     * The session observer uses this to detect when linking completes.
+     */
+    private var pendingLinkProvider: String? = null
+
+    /**
+     * Saves the original user during phone linking flow.
+     * Phone sign-in replaces the session, so we need the original user's data after OTP verification.
+     * We save the full User object to avoid getCurrentUser() failing (it would try to fetch the new phone user).
+     */
+    private var pendingPhoneLinkUser: User? = null
+
+    /** Whether the user has already seen the onboarding slides on this device. */
+    val hasSeenOnboarding: Boolean get() = sessionPrefs.hasSeenOnboarding
+
+    /** Mark onboarding slides as viewed — persists across sessions. */
+    fun markOnboardingSeen() { sessionPrefs.hasSeenOnboarding = true }
+
     init {
-        loadGrades()
-        loadCountries()
+        AppLogger.d("MQ_AUTH", "AuthViewModel init{} START")
+        viewModelScope.launch(Dispatchers.Default + exceptionHandler) {
+            loadGradesInternal()
+        }
+        viewModelScope.launch(Dispatchers.Default + exceptionHandler) {
+            loadCountriesInternal()
+        }
+        observeSessionForGoogleCallback()
+        AppLogger.d("MQ_AUTH", "AuthViewModel init{} END — coroutines launched")
     }
 
     // ── Session check ────────────────────────────────────────────────────
@@ -116,8 +200,6 @@ class AuthViewModel(
                     }
                     return@launch
                 }
-                // Restore session: both anonymous and identified users that
-                // completed onboarding (isLoggedIn == true) should stay logged in.
                 val user = authRepository.getCurrentUser()
                 _sessionCheck.update {
                     if (user != null && sessionPrefs.isLoggedIn) SessionCheck.LOGGED_IN
@@ -132,151 +214,288 @@ class AuthViewModel(
 
     // ── Reference data ───────────────────────────────────────────────────
 
-    fun loadGrades() {
-        viewModelScope.launch(exceptionHandler) {
-            try {
-                AppLogger.d("MQ_AUTH", "loadGrades() starting...")
-                when (val result = referenceDataRepository.getGrades()) {
-                    is Resource.Success -> {
-                        AppLogger.d("MQ_AUTH", "loadGrades() SUCCESS: ${result.data.size} grades loaded: ${result.data.map { "${it.label}→${it.id}" }}")
-                        _grades.update { result.data }
-                    }
-                    is Resource.Error -> {
-                        AppLogger.e("MQ_AUTH", "loadGrades() ERROR: ${result.message}")
-                    }
-                    is Resource.Loading -> { /* no-op */ }
+    private suspend fun loadGradesInternal() {
+        AppLogger.d("MQ_AUTH", "loadGrades() starting...")
+        try {
+            when (val result = referenceDataRepository.getGrades()) {
+                is Resource.Success -> {
+                    AppLogger.d("MQ_AUTH", "loadGrades() SUCCESS: ${result.data.size} grades")
+                    _grades.update { result.data }
                 }
-            } catch (e: Exception) {
-                AppLogger.e("MQ_AUTH", "loadGrades() EXCEPTION", e)
+                is Resource.Error -> AppLogger.e("MQ_AUTH", "loadGrades() ERROR: ${result.message}")
+                is Resource.Loading -> {}
             }
+        } catch (e: Exception) {
+            AppLogger.e("MQ_AUTH", "loadGrades() EXCEPTION", e)
         }
     }
 
-    /** Map a grade label (e.g. "Grade 5") to its backend UUID using loaded grades. */
+    fun loadGrades() {
+        viewModelScope.launch(Dispatchers.Default + exceptionHandler) { loadGradesInternal() }
+    }
+
+    private suspend fun awaitGrades(): List<Grade> {
+        if (_grades.value.isNotEmpty()) return _grades.value
+        AppLogger.d("MQ_AUTH", "awaitGrades() — waiting (max 10s)...")
+        return withTimeoutOrNull(10_000L) {
+            _grades.first { it.isNotEmpty() }
+        } ?: run {
+            AppLogger.e("MQ_AUTH", "awaitGrades() TIMED OUT")
+            emptyList()
+        }
+    }
+
+    private suspend fun awaitCountries(): List<Country> {
+        if (_countries.value.isNotEmpty()) return _countries.value
+        return withTimeoutOrNull(10_000L) { _countries.first { it.isNotEmpty() } } ?: emptyList()
+    }
+
     fun resolveGradeId(label: String): String {
         val resolved = _grades.value.find { it.label == label }?.id ?: ""
         AppLogger.d("MQ_AUTH", "resolveGradeId('$label') → '$resolved' (grades count=${_grades.value.size})")
         return resolved
     }
 
+    private suspend fun resolveProfileIds(profile: OnboardingProfile): OnboardingProfile {
+        val grades = awaitGrades()
+        val countries = awaitCountries()
+        val cities = _cities.value
+
+        val resolvedGradeId = if (profile.gradeId.isNotBlank()) profile.gradeId
+            else grades.find { it.label == profile.gradeLabel }?.id ?: ""
+        val resolvedCountryId = if (!profile.countryId.isNullOrBlank()) profile.countryId
+            else countries.find { it.name == profile.countryName }?.id
+        val resolvedCityId = if (!profile.cityId.isNullOrBlank()) profile.cityId
+            else cities.find { it.name == profile.cityName }?.id
+
+        AppLogger.d("MQ_AUTH", "resolveProfileIds: grade='${profile.gradeLabel}'→'$resolvedGradeId'")
+        return profile.copy(gradeId = resolvedGradeId, countryId = resolvedCountryId, cityId = resolvedCityId)
+    }
+
     // ── Country / City ──────────────────────────────────────────────────
 
-    fun loadCountries() {
-        viewModelScope.launch(exceptionHandler) {
-            try {
-                AppLogger.d("MQ_AUTH", "loadCountries() starting...")
-                when (val result = referenceDataRepository.getCountries()) {
-                    is Resource.Success -> {
-                        AppLogger.d("MQ_AUTH", "loadCountries() SUCCESS: ${result.data.size} countries loaded: ${result.data.map { it.name }}")
-                        _countries.update { result.data }
-                        // Auto-load cities for default country (India, or first available)
-                        val defaultCountry = result.data.find { it.name == "India" }
-                            ?: result.data.firstOrNull()
-                        AppLogger.d("MQ_AUTH", "loadCountries() defaultCountry=${defaultCountry?.name} (${defaultCountry?.id})")
-                        defaultCountry?.let { loadCities(it.id) }
-                    }
-                    is Resource.Error -> {
-                        AppLogger.e("MQ_AUTH", "loadCountries() ERROR: ${result.message}")
-                    }
-                    is Resource.Loading -> { /* no-op */ }
+    private suspend fun loadCountriesInternal() {
+        AppLogger.d("MQ_AUTH", "loadCountries() starting...")
+        try {
+            when (val result = referenceDataRepository.getCountries()) {
+                is Resource.Success -> {
+                    AppLogger.d("MQ_AUTH", "loadCountries() SUCCESS: ${result.data.size} countries")
+                    _countries.update { result.data }
+                    val defaultCountry = result.data.find { it.name == "India" } ?: result.data.firstOrNull()
+                    defaultCountry?.let { loadCitiesInternal(it.id) }
                 }
-            } catch (e: Exception) {
-                AppLogger.e("MQ_AUTH", "loadCountries() EXCEPTION", e)
+                is Resource.Error -> AppLogger.e("MQ_AUTH", "loadCountries() ERROR: ${result.message}")
+                is Resource.Loading -> {}
             }
+        } catch (e: Exception) {
+            AppLogger.e("MQ_AUTH", "loadCountries() EXCEPTION", e)
+        }
+    }
+
+    fun loadCountries() {
+        viewModelScope.launch(Dispatchers.Default + exceptionHandler) { loadCountriesInternal() }
+    }
+
+    private suspend fun loadCitiesInternal(countryId: String) {
+        try {
+            when (val result = referenceDataRepository.getCities(countryId)) {
+                is Resource.Success -> _cities.update { result.data }
+                is Resource.Error -> AppLogger.e("MQ_AUTH", "loadCities() ERROR: ${result.message}")
+                is Resource.Loading -> {}
+            }
+        } catch (e: Exception) {
+            AppLogger.e("MQ_AUTH", "loadCities() EXCEPTION", e)
         }
     }
 
     fun loadCities(countryId: String) {
+        viewModelScope.launch(Dispatchers.Default + exceptionHandler) { loadCitiesInternal(countryId) }
+    }
+
+    fun resolveCountryId(name: String): String = _countries.value.find { it.name == name }?.id ?: ""
+    fun resolveCityId(name: String): String = _cities.value.find { it.name == name }?.id ?: ""
+
+    // ── Auth: Google ─────────────────────────────────────────────────────
+
+    fun signInWithGoogle(profile: OnboardingProfile? = null) {
+        AppLogger.d("MQ_AUTH", "signInWithGoogle() called, profile=$profile")
         viewModelScope.launch(exceptionHandler) {
+            _authState.update { UiState.Empty }
+
+            val resolvedProfile = if (profile != null) {
+                val resolved = resolveProfileIds(profile)
+                if (resolved.gradeId.isBlank()) {
+                    _authState.update { UiState.Error("Grades not loaded yet. Please try again.") }
+                    return@launch
+                }
+                resolved
+            } else null
+
+            _authState.update { UiState.Loading }
+            pendingGoogleProfile = resolvedProfile
+
+            // 60s timeout safety net
+            viewModelScope.launch {
+                delay(60_000)
+                if (_authState.value is UiState.Loading && pendingGoogleProfile != null) {
+                    pendingGoogleProfile = null
+                    _authState.update { UiState.Error("Google sign-in timed out. Please try again.") }
+                }
+            }
+
             try {
-                AppLogger.d("MQ_AUTH", "loadCities($countryId) starting...")
-                when (val result = referenceDataRepository.getCities(countryId)) {
+                val result = authRepository.signInWithGoogle()
+                when (result) {
                     is Resource.Success -> {
-                        AppLogger.d("MQ_AUTH", "loadCities() SUCCESS: ${result.data.size} cities loaded: ${result.data.map { it.name }}")
-                        _cities.update { result.data }
+                        val user = result.data ?: return@launch
+                        val googleEmail = user.email
+                        AppLogger.d("MQ_AUTH", "Google: userId=${user.id}, email='$googleEmail'")
+
+                        // ── Duplicate detection + returning user (#4, #16, #17) ──
+                        if (!googleEmail.isNullOrBlank()) {
+                            try {
+                                val existing = authRepository.findExistingUser(email = googleEmail)
+                                when {
+                                    // Same user returning — skip onboarding, go straight to login
+                                    existing != null && existing.id == user.id -> {
+                                        AppLogger.d("MQ_AUTH", "Google: RETURNING USER (same id=${user.id}), skipping onboarding")
+                                        handleGoogleSignInSuccess(user, null) // null profile = returning user
+                                        return@launch
+                                    }
+                                    // Different user with same email — block and show error
+                                    existing != null && existing.id != user.id -> {
+                                        AppLogger.e("MQ_AUTH", "Google: DUPLICATE BLOCKED! existing=${existing.id}, new=${user.id}, email=$googleEmail")
+                                        // FIX #4: Sign out the orphaned auth user to prevent DB clutter
+                                        try {
+                                            authRepository.signOut()
+                                            AppLogger.d("MQ_AUTH", "Google: signed out orphaned auth user")
+                                        } catch (e: Exception) {
+                                            AppLogger.e("MQ_AUTH", "Google: failed to sign out orphaned user", e)
+                                        }
+                                        // FIX #5: Show duplicate error state with recovery options
+                                        _duplicateEmailError.update { DuplicateEmailError(email = googleEmail) }
+                                        _authState.update { UiState.Empty }
+                                        return@launch
+                                    }
+                                    // No existing user — new signup, proceed normally
+                                    else -> {
+                                        AppLogger.d("MQ_AUTH", "Google: no existing user for email=$googleEmail, new signup")
+                                    }
+                                }
+                            } catch (e: Exception) {
+                                AppLogger.e("MQ_AUTH", "Google: duplicate check failed (continuing)", e)
+                            }
+                        }
+
+                        handleGoogleSignInSuccess(user, resolvedProfile)
                     }
                     is Resource.Error -> {
-                        AppLogger.e("MQ_AUTH", "loadCities() ERROR: ${result.message}")
+                        _authState.update { UiState.Error(result.message) }
                     }
-                    is Resource.Loading -> { /* no-op */ }
+                    is Resource.Loading -> {}
                 }
             } catch (e: Exception) {
-                AppLogger.e("MQ_AUTH", "loadCities() EXCEPTION", e)
+                _authState.update { UiState.Error(e.message ?: "Google sign-in failed") }
             }
         }
     }
 
-    /** Map a country name to its backend UUID. */
-    fun resolveCountryId(name: String): String {
-        val resolved = _countries.value.find { it.name == name }?.id ?: ""
-        AppLogger.d("MQ_AUTH", "resolveCountryId('$name') → '$resolved' (countries count=${_countries.value.size})")
-        return resolved
-    }
+    private suspend fun handleGoogleSignInSuccess(user: User?, profile: OnboardingProfile?) {
+        if (user == null) return
+        AppLogger.d("MQ_AUTH", "Google: signIn SUCCESS, userId=${user.id}, displayName='${user.displayName}', email='${user.email}'")
 
-    /** Map a city name to its backend UUID. */
-    fun resolveCityId(name: String): String {
-        val resolved = _cities.value.find { it.name == name }?.id ?: ""
-        AppLogger.d("MQ_AUTH", "resolveCityId('$name') → '$resolved' (cities count=${_cities.value.size})")
-        return resolved
-    }
-
-    // ── Auth: Google ─────────────────────────────────────────────────────
-
-    /**
-     * Sign in with Google.
-     * @param profile Non-null for new-user signup (onboarding data to persist).
-     *               Null for existing-user login (profile already exists).
-     */
-    fun signInWithGoogle(profile: OnboardingProfile? = null) {
-        AppLogger.d("MQ_AUTH", "signInWithGoogle() called, profile=$profile")
-        viewModelScope.launch(exceptionHandler) {
-            // Reset previous state so LaunchedEffect always detects changes
-            _authState.update { UiState.Empty }
-            AppLogger.d("MQ_AUTH", "Google: authState → Empty")
-            // Guard: new-user signup requires a resolved grade
-            if (profile != null && profile.gradeId.isBlank()) {
-                AppLogger.e("MQ_AUTH", "Google: gradeId is BLANK — aborting")
-                _authState.update { UiState.Error("Please select a grade before continuing.") }
-                return@launch
-            }
-            _authState.update { UiState.Loading }
-            AppLogger.d("MQ_AUTH", "Google: authState → Loading")
-            try {
-                AppLogger.d("MQ_AUTH", "Google: calling authRepository.signInWithGoogle()...")
-                val result = authRepository.signInWithGoogle()
-                AppLogger.d("MQ_AUTH", "Google: signIn result = $result")
-                when (result) {
-                    is Resource.Success -> {
-                        val user = result.data!!
-                        AppLogger.d("MQ_AUTH", "Google: signIn SUCCESS, userId=${user.id}")
-                        // New-user signup → create the public.users row
-                        if (profile != null) {
-                            AppLogger.d("MQ_AUTH", "Google: calling upsertUserRow...")
-                            val upsertResult = authRepository.upsertUserRow(
-                                userId = user.id,
-                                displayName = profile.displayName,
-                                avatarId = profile.avatarId,
-                                gradeId = profile.gradeId,
-                                authProvider = "google",
-                                countryId = profile.countryId,
-                                cityId = profile.cityId,
-                                schoolName = profile.schoolName,
-                            )
-                            AppLogger.d("MQ_AUTH", "Google: upsertUserRow result = $upsertResult")
-                        }
-                        sessionPrefs.isLoggedIn = true
-                        _authState.update { UiState.Success(user) }
-                        AppLogger.d("MQ_AUTH", "Google: authState → Success")
-                    }
-                    is Resource.Error -> {
-                        AppLogger.e("MQ_AUTH", "Google: signIn ERROR = ${result.message}")
-                        _authState.update { UiState.Error(result.message) }
-                    }
-                    is Resource.Loading -> { /* no-op */ }
+        if (profile != null) {
+            // New user signup — create full user row with onboarding data
+            val displayName = profile.displayName.ifBlank { user.displayName }
+            val upsertResult = authRepository.upsertUserRow(
+                userId = user.id,
+                displayName = displayName,
+                avatarId = profile.avatarId,
+                gradeId = profile.gradeId,
+                authProvider = "google",
+                countryId = profile.countryId,
+                cityId = profile.cityId,
+                schoolName = profile.schoolName,
+                email = user.email,
+            )
+            AppLogger.d("MQ_AUTH", "Google: upsertUserRow (new user) result = $upsertResult")
+        } else {
+            // Returning user login — ensure email is saved (backfill for old users)
+            if (!user.email.isNullOrBlank() && user.id.isNotBlank()) {
+                try {
+                    authRepository.updateProfile(user.id, mapOf("auth_provider" to "google"))
+                    AppLogger.d("MQ_AUTH", "Google: updated auth_provider for returning user")
+                } catch (e: Exception) {
+                    AppLogger.e("MQ_AUTH", "Google: failed to update returning user", e)
                 }
-            } catch (e: Exception) {
-                AppLogger.e("MQ_AUTH", "Google: EXCEPTION", e)
-                _authState.update { UiState.Error(e.message ?: "Google sign-in failed") }
+            }
+        }
+        pendingGoogleProfile = null
+        sessionPrefs.isLoggedIn = true
+        sessionPrefs.lastAuthProvider = "google"
+        _authState.update { UiState.Success(user) }
+        AppLogger.d("MQ_AUTH", "Google: authState → Success")
+    }
+
+    private fun observeSessionForGoogleCallback() {
+        viewModelScope.launch(exceptionHandler) {
+            authRepository.observeSessionUserId().collect { userId ->
+                if (userId == null) return@collect
+
+                // Case 1: Google sign-in during onboarding (new user)
+                val profile = pendingGoogleProfile
+                if (profile != null && _authState.value is UiState.Loading) {
+                    AppLogger.d("MQ_AUTH", "Session observer: Google sign-in completed, userId=$userId")
+                    try {
+                        val user = authRepository.getCurrentUser() ?: User(
+                            id = userId,
+                            displayName = profile.displayName,
+                            avatarId = profile.avatarId,
+                            gradeId = profile.gradeId,
+                            authProvider = "google",
+                            isAnonymous = false,
+                        )
+                        handleGoogleSignInSuccess(user, profile)
+                    } catch (e: Exception) {
+                        pendingGoogleProfile = null
+                        _authState.update { UiState.Error("Sign-in failed. Please try again.") }
+                    }
+                }
+
+                // Case 2: Account linking (anonymous → Google)
+                val linkProvider = pendingLinkProvider
+                if (linkProvider != null && _authState.value is UiState.Loading) {
+                    AppLogger.d("MQ_AUTH", "Session observer: account linking completed for provider=$linkProvider")
+                    pendingLinkProvider = null
+                    try {
+                        val currentUser = authRepository.getCurrentUser()
+                        if (currentUser != null) {
+                            val newProvider = when {
+                                linkProvider == "google" && currentUser.authProvider == "phone" -> "google_and_phone"
+                                linkProvider == "google" && currentUser.authProvider == "anonymous" -> "google"
+                                else -> "google_and_phone"
+                            }
+                            // Get email from Supabase session for linking (FIX #1)
+                            val email = authRepository.getCurrentUserEmail()
+                            authRepository.upsertUserRow(
+                                userId = currentUser.id,
+                                displayName = currentUser.displayName,
+                                avatarId = currentUser.avatarId,
+                                gradeId = currentUser.gradeId,
+                                authProvider = newProvider,
+                                email = email,
+                            )
+                            AppLogger.d("MQ_AUTH", "Session observer: auth_provider → '$newProvider', email='$email'")
+                        }
+                        sessionPrefs.lastAuthProvider = linkProvider
+                        _isLinkingSheetVisible.update { false }
+                        _authState.update { UiState.Success(null) }
+                        AppLogger.d("MQ_AUTH", "Session observer: linking SUCCESS")
+                    } catch (e: Exception) {
+                        AppLogger.e("MQ_AUTH", "Session observer: linking failed", e)
+                        _authState.update { UiState.Error("Account linking failed. Please try again.") }
+                    }
+                }
             }
         }
     }
@@ -284,52 +503,43 @@ class AuthViewModel(
     // ── Auth: Anonymous ──────────────────────────────────────────────────
 
     fun signInAnonymously(profile: OnboardingProfile? = null) {
-        AppLogger.d("MQ_AUTH", "signInAnonymously() called, profile=$profile")
+        AppLogger.d("MQ_AUTH", "signInAnonymously() called")
         viewModelScope.launch(exceptionHandler) {
-            // Reset previous state so LaunchedEffect always detects changes
             _authState.update { UiState.Empty }
-            AppLogger.d("MQ_AUTH", "Anon: authState → Empty")
-            // Guard: new-user signup requires a resolved grade
-            if (profile != null && profile.gradeId.isBlank()) {
-                AppLogger.e("MQ_AUTH", "Anon: gradeId is BLANK — aborting")
-                _authState.update { UiState.Error("Please select a grade before continuing.") }
-                return@launch
-            }
+
+            val resolvedProfile = if (profile != null) {
+                val resolved = resolveProfileIds(profile)
+                if (resolved.gradeId.isBlank()) {
+                    _authState.update { UiState.Error("Grades not loaded yet. Please try again.") }
+                    return@launch
+                }
+                resolved
+            } else null
+
             _authState.update { UiState.Loading }
-            AppLogger.d("MQ_AUTH", "Anon: authState → Loading")
             try {
-                AppLogger.d("MQ_AUTH", "Anon: calling authRepository.signInAnonymously()...")
                 val result = authRepository.signInAnonymously()
-                AppLogger.d("MQ_AUTH", "Anon: signIn result = $result")
                 when (result) {
                     is Resource.Success -> {
-                        val user = result.data!!
-                        AppLogger.d("MQ_AUTH", "Anon: signIn SUCCESS, userId=${user.id}")
-                        // Always create a user row
-                        AppLogger.d("MQ_AUTH", "Anon: calling upsertUserRow gradeId='${profile?.gradeId}'...")
-                        val upsertResult = authRepository.upsertUserRow(
+                        val user = result.data ?: return@launch
+                        authRepository.upsertUserRow(
                             userId = user.id,
-                            displayName = profile?.displayName ?: "Guest Player",
-                            avatarId = profile?.avatarId ?: 1,
-                            gradeId = profile?.gradeId ?: "",
+                            displayName = resolvedProfile?.displayName ?: "Guest Player",
+                            avatarId = resolvedProfile?.avatarId ?: 1,
+                            gradeId = resolvedProfile?.gradeId ?: "",
                             authProvider = "anonymous",
-                            countryId = profile?.countryId,
-                            cityId = profile?.cityId,
-                            schoolName = profile?.schoolName,
+                            countryId = resolvedProfile?.countryId,
+                            cityId = resolvedProfile?.cityId,
+                            schoolName = resolvedProfile?.schoolName,
                         )
-                        AppLogger.d("MQ_AUTH", "Anon: upsertUserRow result = $upsertResult")
                         sessionPrefs.isLoggedIn = true
+                        sessionPrefs.lastAuthProvider = "anonymous"
                         _authState.update { UiState.Success(user) }
-                        AppLogger.d("MQ_AUTH", "Anon: authState → Success")
                     }
-                    is Resource.Error -> {
-                        AppLogger.e("MQ_AUTH", "Anon: signIn ERROR = ${result.message}")
-                        _authState.update { UiState.Error(result.message) }
-                    }
-                    is Resource.Loading -> { /* no-op */ }
+                    is Resource.Error -> _authState.update { UiState.Error(result.message) }
+                    is Resource.Loading -> {}
                 }
             } catch (e: Exception) {
-                AppLogger.e("MQ_AUTH", "Anon: EXCEPTION", e)
                 _authState.update { UiState.Error(e.message ?: "Anonymous sign-in failed") }
             }
         }
@@ -337,19 +547,13 @@ class AuthViewModel(
 
     // ── Auth: Phone OTP ──────────────────────────────────────────────────
 
-    fun updatePhoneNumber(phone: String) {
-        _phoneNumber.update { phone }
-    }
+    fun updatePhoneNumber(phone: String) { _phoneNumber.update { phone } }
 
     fun updateOtpCode(code: String) {
-        if (code.length <= 6) {
-            _otpCode.update { code }
-        }
+        if (code.length <= 6) _otpCode.update { code }
     }
 
-    fun navigateToPhone() {
-        _authScreen.update { AuthScreenState.PHONE }
-    }
+    fun navigateToPhone() { _authScreen.update { AuthScreenState.PHONE } }
 
     fun navigateToMain() {
         _authScreen.update { AuthScreenState.MAIN }
@@ -358,13 +562,7 @@ class AuthViewModel(
         _isOtpSent.update { false }
     }
 
-    /**
-     * Stash onboarding data before entering the phone flow,
-     * since the STEP3 → PHONE_AUTH navigation loses the composable state.
-     */
-    fun setPendingProfile(profile: OnboardingProfile?) {
-        pendingProfile = profile
-    }
+    fun setPendingProfile(profile: OnboardingProfile?) { pendingProfile = profile }
 
     fun sendOtp(phone: String) {
         viewModelScope.launch(exceptionHandler) {
@@ -379,10 +577,8 @@ class AuthViewModel(
                         _authState.update { UiState.Empty }
                         startResendTimer()
                     }
-                    is Resource.Error -> {
-                        _authState.update { UiState.Error(result.message) }
-                    }
-                    is Resource.Loading -> { /* no-op */ }
+                    is Resource.Error -> _authState.update { UiState.Error(result.message) }
+                    is Resource.Loading -> {}
                 }
             } catch (e: Exception) {
                 _authState.update { UiState.Error(e.message ?: "Failed to send OTP") }
@@ -392,21 +588,20 @@ class AuthViewModel(
 
     fun verifyOtp(code: String) {
         viewModelScope.launch(exceptionHandler) {
-            // Reset previous state so LaunchedEffect always detects changes
             _authState.update { UiState.Empty }
-            // Guard: if onboarding data was stashed, grade must be resolved
-            val profile = pendingProfile
+
+            val profile = pendingProfile?.let { resolveProfileIds(it) }
             if (profile != null && profile.gradeId.isBlank()) {
-                _authState.update { UiState.Error("Please select a grade before continuing.") }
+                _authState.update { UiState.Error("Grades not loaded yet. Please try again.") }
                 return@launch
             }
+
             _authState.update { UiState.Loading }
             try {
                 val result = authRepository.verifyOtp(_phoneNumber.value, code)
                 when (result) {
                     is Resource.Success -> {
-                        val user = result.data!!
-                        // If onboarding data was stashed, create the user row
+                        val user = result.data ?: return@launch
                         if (profile != null) {
                             authRepository.upsertUserRow(
                                 userId = user.id,
@@ -417,17 +612,17 @@ class AuthViewModel(
                                 countryId = profile.countryId,
                                 cityId = profile.cityId,
                                 schoolName = profile.schoolName,
+                                phone = _phoneNumber.value,
                             )
                             pendingProfile = null
                         }
                         sessionPrefs.isLoggedIn = true
+                        sessionPrefs.lastAuthProvider = "phone"
                         _authScreen.update { AuthScreenState.VERIFIED }
                         _authState.update { UiState.Success(user) }
                     }
-                    is Resource.Error -> {
-                        _authState.update { UiState.Error(result.message) }
-                    }
-                    is Resource.Loading -> { /* no-op */ }
+                    is Resource.Error -> _authState.update { UiState.Error(result.message) }
+                    is Resource.Loading -> {}
                 }
             } catch (e: Exception) {
                 _authState.update { UiState.Error(e.message ?: "OTP verification failed") }
@@ -436,9 +631,7 @@ class AuthViewModel(
     }
 
     fun resendOtp() {
-        if (_resendTimer.value == 0) {
-            sendOtp(_phoneNumber.value)
-        }
+        if (_resendTimer.value == 0) sendOtp(_phoneNumber.value)
     }
 
     private fun startResendTimer() {
@@ -462,27 +655,253 @@ class AuthViewModel(
         _isLinkingSheetVisible.update { false }
     }
 
+    // ── Link confirmation (#13: Account takeover protection) ──────────────
+
+    /** Show confirmation dialog before linking. */
+    fun showLinkConfirmation(provider: String) {
+        viewModelScope.launch(exceptionHandler) {
+            val currentUser = authRepository.getCurrentUser()
+            _linkConfirmation.update {
+                LinkConfirmation(
+                    provider = provider,
+                    currentAuthProvider = currentUser?.authProvider ?: "unknown",
+                )
+            }
+        }
+    }
+
+    /** User confirmed — proceed with actual linking. */
+    fun confirmAndLink() {
+        val confirmation = _linkConfirmation.value ?: return
+        _linkConfirmation.update { null }
+        linkAccount(confirmation.provider)
+    }
+
+    /** User cancelled linking. */
+    fun cancelLinking() {
+        _linkConfirmation.update { null }
+        _isLinkingSheetVisible.update { false }
+    }
+
     fun linkAccount(provider: String) {
         viewModelScope.launch(exceptionHandler) {
             _authState.update { UiState.Empty }
             _authState.update { UiState.Loading }
+            AppLogger.d("MQ_AUTH", "linkAccount($provider): starting — setting pendingLinkProvider")
+
+            // Set pending flag so session observer can detect when browser OAuth completes
+            pendingLinkProvider = provider
+
+            // 60s timeout for browser-based linking
+            viewModelScope.launch {
+                delay(60_000)
+                if (pendingLinkProvider != null && _authState.value is UiState.Loading) {
+                    AppLogger.e("MQ_AUTH", "linkAccount: 60s timeout — resetting")
+                    pendingLinkProvider = null
+                    _authState.update { UiState.Error("Account linking timed out. Please try again.") }
+                }
+            }
+
             try {
                 val result = when (provider) {
                     "google" -> authRepository.linkAccountWithGoogle()
                     else -> Resource.Error("Unknown provider: $provider")
                 }
+                // On mobile, linkIdentity(Google) may not return a meaningful result
+                // because the browser redirect breaks the suspend chain.
+                // The session observer will handle completion.
                 when (result) {
                     is Resource.Success -> {
-                        _isLinkingSheetVisible.update { false }
-                        _authState.update { UiState.Success(null) }
+                        AppLogger.d("MQ_AUTH", "linkAccount($provider): linkIdentity returned SUCCESS")
+                        // If the suspend call actually completed (e.g. on web), handle inline
+                        if (pendingLinkProvider != null) {
+                            pendingLinkProvider = null
+                            try {
+                                val currentUser = authRepository.getCurrentUser()
+                                if (currentUser != null) {
+                                    val newProvider = when {
+                                        provider == "google" && currentUser.authProvider == "phone" -> "google_and_phone"
+                                        provider == "google" && currentUser.authProvider == "anonymous" -> "google"
+                                        else -> "google_and_phone"
+                                    }
+                                    // Get email from Supabase session for linking (FIX #1)
+                                    val email = authRepository.getCurrentUserEmail()
+                                    authRepository.upsertUserRow(
+                                        userId = currentUser.id,
+                                        displayName = currentUser.displayName,
+                                        avatarId = currentUser.avatarId,
+                                        gradeId = currentUser.gradeId,
+                                        authProvider = newProvider,
+                                        email = email,
+                                    )
+                                    AppLogger.d("MQ_AUTH", "linkAccount: auth_provider → '$newProvider', email='$email'")
+                                }
+                            } catch (e: Exception) {
+                                AppLogger.e("MQ_AUTH", "linkAccount: failed to update auth_provider", e)
+                            }
+                            sessionPrefs.lastAuthProvider = provider
+                            _isLinkingSheetVisible.update { false }
+                            _authState.update { UiState.Success(null) }
+                        }
                     }
                     is Resource.Error -> {
+                        pendingLinkProvider = null
                         _authState.update { UiState.Error(result.message) }
                     }
-                    is Resource.Loading -> { /* no-op */ }
+                    is Resource.Loading -> {}
                 }
             } catch (e: Exception) {
-                _authState.update { UiState.Error(e.message ?: "Account linking failed") }
+                // Don't clear pendingLinkProvider — browser may still redirect back
+                AppLogger.e("MQ_AUTH", "linkAccount: exception (session observer may still complete)", e)
+            }
+        }
+    }
+
+    // ── Phone linking with OTP (#3) ────────────────────────────────────
+
+    /** Initiate phone linking — sends OTP to the phone number. */
+    fun linkPhoneStart(phone: String) {
+        viewModelScope.launch(exceptionHandler) {
+            _authState.update { UiState.Loading }
+            _phoneNumber.update { phone }
+            try {
+                // FIX #3: Save original user BEFORE phone sign-in replaces the session
+                // We save the full User object, not just ID, because getCurrentUser() will fail
+                // after the session is replaced (it would try to fetch the new phone user)
+                val originalUser = authRepository.getCurrentUser()
+                if (originalUser != null) {
+                    pendingPhoneLinkUser = originalUser
+                    AppLogger.d("MQ_AUTH", "linkPhoneStart: saved original user ${originalUser.id}")
+                } else {
+                    AppLogger.e("MQ_AUTH", "linkPhoneStart: could not get current user")
+                    _authState.update { UiState.Error("Failed to prepare phone linking") }
+                    return@launch
+                }
+
+                val result = authRepository.linkPhoneInitiate(phone)
+                when (result) {
+                    is Resource.Success -> {
+                        _isOtpSent.update { true }
+                        _authScreen.update { AuthScreenState.LINKING }
+                        _authState.update { UiState.Empty }
+                        startResendTimer()
+                        AppLogger.d("MQ_AUTH", "linkPhoneStart: OTP sent to $phone")
+                    }
+                    is Resource.Error -> {
+                        pendingPhoneLinkUser = null
+                        _authState.update { UiState.Error(result.message) }
+                    }
+                    is Resource.Loading -> {}
+                }
+            } catch (e: Exception) {
+                pendingPhoneLinkUser = null
+                _authState.update { UiState.Error(e.message ?: "Failed to send OTP") }
+            }
+        }
+    }
+
+    /** Verify OTP and complete phone linking. */
+    fun linkPhoneVerify(otp: String) {
+        viewModelScope.launch(exceptionHandler) {
+            _authState.update { UiState.Loading }
+            try {
+                val result = authRepository.linkPhoneVerify(_phoneNumber.value, otp)
+                when (result) {
+                    is Resource.Success -> {
+                        AppLogger.d("MQ_AUTH", "linkPhoneVerify: SUCCESS")
+
+                        // FIX #3: Use saved original user, not current user (session was replaced)
+                        // We have the full User object saved in linkPhoneStart() so we don't need to fetch it
+                        val originalUser = pendingPhoneLinkUser
+                        if (originalUser != null) {
+                            val newProvider = when (originalUser.authProvider) {
+                                "google" -> "google_and_phone"
+                                "anonymous" -> "phone"
+                                else -> "google_and_phone"
+                            }
+                            authRepository.upsertUserRow(
+                                userId = originalUser.id,
+                                displayName = originalUser.displayName,
+                                avatarId = originalUser.avatarId,
+                                gradeId = originalUser.gradeId,
+                                authProvider = newProvider,
+                                phone = _phoneNumber.value,
+                            )
+                            AppLogger.d("MQ_AUTH", "linkPhoneVerify: updated original userId=${originalUser.id} with provider='$newProvider'")
+                        }
+                        pendingPhoneLinkUser = null
+                        _isLinkingSheetVisible.update { false }
+                        _authScreen.update { AuthScreenState.MAIN }
+                        _authState.update { UiState.Success(null) }
+                        sessionPrefs.lastAuthProvider = "phone"
+                    }
+                    is Resource.Error -> {
+                        pendingPhoneLinkUser = null
+                        _authState.update { UiState.Error(result.message) }
+                    }
+                    is Resource.Loading -> {}
+                }
+            } catch (e: Exception) {
+                pendingPhoneLinkUser = null
+                _authState.update { UiState.Error(e.message ?: "Phone verification failed") }
+            }
+        }
+    }
+
+    // ── Duplicate email recovery (FIX #5) ────────────────────────────────
+
+    /** User dismissed duplicate email error and wants to sign in instead. */
+    fun handleDuplicateEmailSignInInstead() {
+        _duplicateEmailError.update { null }
+        // Navigate back to user type so they can choose "I already have an account"
+        _authScreen.update { AuthScreenState.MAIN }
+    }
+
+    /** User wants to try with a different Google account. */
+    fun handleDuplicateEmailRetry() {
+        _duplicateEmailError.update { null }
+        _authState.update { UiState.Empty }
+        // Don't automatically retry — let the user tap "Continue with Google" again
+        // which will prompt them to select a different account
+    }
+
+    // ── Merge / duplicate detection (#4, #16, #17) ──────────────────────
+
+    /** User confirmed merge — move all data from existing to new account. */
+    fun confirmMerge() {
+        val suggestion = _mergeSuggestion.value ?: return
+        viewModelScope.launch(exceptionHandler) {
+            _authState.update { UiState.Loading }
+            try {
+                val result = authRepository.mergeUsers(
+                    fromId = suggestion.existingUser.id,
+                    toId = suggestion.newUserId,
+                )
+                if (result is Resource.Success) {
+                    AppLogger.d("MQ_AUTH", "confirmMerge: SUCCESS — merged ${suggestion.existingUser.id} → ${suggestion.newUserId}")
+                    // Now create the user row for the new user (if profile pending)
+                    suggestion.pendingUser?.let { user ->
+                        handleGoogleSignInSuccess(user, suggestion.pendingProfile)
+                    }
+                } else if (result is Resource.Error) {
+                    _authState.update { UiState.Error(result.message) }
+                }
+            } catch (e: Exception) {
+                _authState.update { UiState.Error(e.message ?: "Merge failed") }
+            } finally {
+                _mergeSuggestion.update { null }
+            }
+        }
+    }
+
+    /** User declined merge — continue with separate account. */
+    fun skipMerge() {
+        val suggestion = _mergeSuggestion.value ?: return
+        _mergeSuggestion.update { null }
+        // Proceed with normal sign-in for the new user
+        viewModelScope.launch(exceptionHandler) {
+            suggestion.pendingUser?.let { user ->
+                handleGoogleSignInSuccess(user, suggestion.pendingProfile)
             }
         }
     }
@@ -491,7 +910,7 @@ class AuthViewModel(
 
     fun signOut() {
         viewModelScope.launch(exceptionHandler) {
-            try { authRepository.signOut() } catch (_: Exception) { /* best-effort */ }
+            try { authRepository.signOut() } catch (_: Exception) {}
             sessionPrefs.clear()
         }
     }

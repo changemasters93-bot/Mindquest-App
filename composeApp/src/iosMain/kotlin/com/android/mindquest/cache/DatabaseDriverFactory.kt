@@ -1,10 +1,5 @@
 package com.android.mindquest.cache
 
-import app.cash.sqldelight.db.SqlDriver
-import app.cash.sqldelight.driver.native.NativeSqliteDriver
-
-actual class DatabaseDriverFactory {
-    actual fun createDriver(): SqlDriver {
-        return NativeSqliteDriver(MindquestDatabase.Schema, "mindquest.db")
-    }
-}
+// No-op: SQLDelight native driver excluded due to Kotlin ABI mismatch (2.1.0 vs 2.2.x).
+// Offline cache is not wired to the main app flow yet.
+actual class DatabaseDriverFactory

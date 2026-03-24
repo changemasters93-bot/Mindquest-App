@@ -157,6 +157,16 @@ BEGIN
 EXCEPTION WHEN OTHERS THEN NULL;
 END $$;
 
+-- Add email/phone columns for duplicate detection & account recovery
+DO $$
+BEGIN
+    ALTER TABLE public.users ADD COLUMN IF NOT EXISTS email TEXT;
+    ALTER TABLE public.users ADD COLUMN IF NOT EXISTS phone TEXT;
+    ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN DEFAULT false;
+    ALTER TABLE public.users ADD COLUMN IF NOT EXISTS is_phone_verified BOOLEAN DEFAULT false;
+EXCEPTION WHEN OTHERS THEN NULL;
+END $$;
+
 
 -- ═══════════════════════════════════════════════════════════════════
 -- 3. MODULES TABLE
@@ -1467,7 +1477,7 @@ DECLARE
     v_key   TEXT;
     v_value TEXT;
     v_sql   TEXT := 'UPDATE public.users SET updated_at = now()';
-    v_allowed TEXT[] := ARRAY['display_name','avatar_id','grade_id','school_name','country_id','city_id'];
+    v_allowed TEXT[] := ARRAY['display_name','avatar_id','grade_id','school_name','country_id','city_id','auth_provider'];
 BEGIN
     FOR v_key, v_value IN SELECT * FROM json_each_text(p_fields) LOOP
         IF v_key = ANY(v_allowed) THEN
@@ -1528,6 +1538,78 @@ GRANT EXECUTE ON FUNCTION public.get_leaderboard(UUID, TEXT, UUID, INT, INT) TO 
 GRANT EXECUTE ON FUNCTION public.get_user_stats(UUID, TEXT)        TO authenticated;
 GRANT EXECUTE ON FUNCTION public.get_profile(UUID)                 TO authenticated;
 GRANT EXECUTE ON FUNCTION public.update_profile(UUID, JSON)        TO authenticated;
+
+
+-- ═══════════════════════════════════════════════════════════════════
+-- ACCOUNT LINKING & DUPLICATE DETECTION RPCs
+-- ═══════════════════════════════════════════════════════════════════
+
+-- Find existing user by email (for duplicate detection before signup)
+CREATE OR REPLACE FUNCTION public.find_user_by_email(p_email TEXT)
+RETURNS JSON
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+BEGIN
+    RETURN (
+        SELECT json_build_object(
+            'id', u.id::TEXT,
+            'display_name', u.display_name,
+            'auth_provider', u.auth_provider,
+            'total_xp', u.total_xp,
+            'level', u.level
+        )
+        FROM public.users u
+        WHERE u.email = p_email
+        LIMIT 1
+    );
+END;
+$$;
+
+-- Find existing user by phone (for duplicate detection)
+CREATE OR REPLACE FUNCTION public.find_user_by_phone(p_phone TEXT)
+RETURNS JSON
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+BEGIN
+    RETURN (
+        SELECT json_build_object(
+            'id', u.id::TEXT,
+            'display_name', u.display_name,
+            'auth_provider', u.auth_provider,
+            'total_xp', u.total_xp,
+            'level', u.level
+        )
+        FROM public.users u
+        WHERE u.phone = p_phone
+        LIMIT 1
+    );
+END;
+$$;
+
+-- Merge anonymous/old user data into registered/new user
+CREATE OR REPLACE FUNCTION public.merge_users(p_from_id UUID, p_to_id UUID)
+RETURNS VOID
+LANGUAGE plpgsql SECURITY DEFINER
+AS $$
+BEGIN
+    -- Reassign quiz attempts
+    UPDATE public.quiz_attempts SET user_id = p_to_id WHERE user_id = p_from_id;
+    -- Reassign tournament entries
+    UPDATE public.tournament_entries SET user_id = p_to_id WHERE user_id = p_from_id;
+    -- Carry over best XP / level / streak
+    UPDATE public.users SET
+        total_xp    = GREATEST(total_xp, (SELECT total_xp FROM public.users WHERE id = p_from_id)),
+        level       = GREATEST(level, (SELECT level FROM public.users WHERE id = p_from_id)),
+        streak_best = GREATEST(streak_best, (SELECT streak_best FROM public.users WHERE id = p_from_id))
+    WHERE id = p_to_id;
+    -- Delete old user row (cascades from auth.users FK)
+    DELETE FROM public.users WHERE id = p_from_id;
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION public.find_user_by_email(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.find_user_by_phone(TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.merge_users(UUID, UUID) TO authenticated;
 
 
 -- ═══════════════════════════════════════════════════════════════════

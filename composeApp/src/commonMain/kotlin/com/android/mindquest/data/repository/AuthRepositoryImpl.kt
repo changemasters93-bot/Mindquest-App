@@ -8,6 +8,7 @@ import com.android.mindquest.data.mock.MockDataSource
 import com.android.mindquest.data.remote.ApiService
 import com.android.mindquest.domain.model.User
 import com.android.mindquest.domain.repository.AuthRepository
+import com.android.mindquest.domain.repository.ExistingUserInfo
 import io.github.jan.supabase.SupabaseClient
 import io.github.jan.supabase.auth.auth
 import io.github.jan.supabase.auth.providers.Google
@@ -18,6 +19,9 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.jsonPrimitive
+import kotlinx.serialization.json.long
+import kotlinx.serialization.json.int
 import kotlinx.serialization.json.put
 
 class AuthRepositoryImpl(
@@ -33,10 +37,16 @@ class AuthRepositoryImpl(
             if (AppConstants.USE_MOCK_DATA) {
                 Resource.Success(MockDataSource.mockUser())
             } else {
+                // Log the Auth config to verify redirect URL is set
+                val authConfig = supabaseClient.auth.config
+                AppLogger.d("MQ_AUTH", "AuthRepo: Auth config — scheme='${authConfig.scheme}', host='${authConfig.host}'")
+                AppLogger.d("MQ_AUTH", "AuthRepo: Expected redirect URL = ${authConfig.scheme}://${authConfig.host}")
                 AppLogger.d("MQ_AUTH", "AuthRepo: calling supabaseClient.auth.signInWith(Google)...")
                 supabaseClient.auth.signInWith(Google)
+                AppLogger.d("MQ_AUTH", "AuthRepo: signInWith(Google) returned — checking session...")
                 val session = supabaseClient.auth.currentSessionOrNull()
-                    ?: return Resource.Error("Sign-in failed. Please try again.")
+                AppLogger.d("MQ_AUTH", "AuthRepo: session=${if (session != null) "PRESENT" else "NULL"}")
+                if (session == null) return Resource.Error("Sign-in failed. Please try again.")
                 val userId = session.user?.id
                     ?: return Resource.Error("Sign-in failed. Please try again.")
 
@@ -45,6 +55,16 @@ class AuthRepositoryImpl(
 
                 val googleSub = session.user?.identities
                     ?.find { it.provider == "google" }?.identityId
+
+                // Extract Google profile info from session metadata
+                val metadata = session.user?.userMetadata
+                val googleName = metadata?.get("full_name")?.toString()?.trim('"')
+                    ?: metadata?.get("name")?.toString()?.trim('"')
+                    ?: ""
+                val googleEmail = session.user?.email ?: ""
+                val googleAvatarUrl = metadata?.get("avatar_url")?.toString()?.trim('"')
+                    ?: metadata?.get("picture")?.toString()?.trim('"')
+                AppLogger.d("MQ_AUTH", "AuthRepo: Google metadata — name='$googleName', email='$googleEmail', avatarUrl=${googleAvatarUrl != null}, googleSub=$googleSub")
 
                 Resource.Success(
                     if (profile != null) {
@@ -56,20 +76,25 @@ class AuthRepositoryImpl(
                             gradeLabel = profile.user.gradeLabel,
                             authProvider = profile.user.authProvider,
                             isAnonymous = false,
+                            email = profile.user.email ?: googleEmail,
+                            phone = profile.user.phone,
+                            countryId = profile.user.countryId,
+                            cityId = profile.user.cityId,
                             countryName = profile.user.countryName,
                             cityName = profile.user.cityName,
                             schoolName = profile.user.schoolName
                         )
                     } else {
-                        // New user — return minimal auth-only User.
+                        // New user — use Google name as fallback for display name.
                         // Profile will be created via upsertUserRow() after onboarding.
                         User(
                             id = userId,
-                            displayName = "",
+                            displayName = googleName,
                             avatarId = 1,
                             gradeId = "",
                             authProvider = "google",
-                            isAnonymous = false
+                            isAnonymous = false,
+                            email = googleEmail,
                         )
                     }
                 )
@@ -144,7 +169,7 @@ class AuthRepositoryImpl(
         return try {
             if (AppConstants.USE_MOCK_DATA) {
                 Resource.Success(
-                    MockDataSource.mockUser().copy(authProvider = "phone")
+                    MockDataSource.mockUser().copy(authProvider = "phone", phone = phoneNumber)
                 )
             } else {
                 supabaseClient.auth.verifyPhoneOtp(
@@ -170,6 +195,10 @@ class AuthRepositoryImpl(
                             gradeLabel = profile.user.gradeLabel,
                             authProvider = profile.user.authProvider,
                             isAnonymous = false,
+                            email = profile.user.email,
+                            phone = profile.user.phone ?: phoneNumber,
+                            countryId = profile.user.countryId,
+                            cityId = profile.user.cityId,
                             countryName = profile.user.countryName,
                             cityName = profile.user.cityName,
                             schoolName = profile.user.schoolName
@@ -181,7 +210,8 @@ class AuthRepositoryImpl(
                             avatarId = 1,
                             gradeId = "",
                             authProvider = "phone",
-                            isAnonymous = false
+                            isAnonymous = false,
+                            phone = phoneNumber
                         )
                     }
                 )
@@ -204,6 +234,8 @@ class AuthRepositoryImpl(
         cityId: String?,
         schoolName: String?,
         googleSub: String?,
+        email: String?,
+        phone: String?,
     ): Resource<Unit> {
         return try {
             if (AppConstants.USE_MOCK_DATA) {
@@ -223,9 +255,13 @@ class AuthRepositoryImpl(
                     cityId?.takeIf { it.isNotBlank() }?.let { put("city_id", it) }
                     schoolName?.takeIf { it.isNotBlank() }?.let { put("school_name", it) }
                     googleSub?.let { put("google_sub", it) }
+                    email?.takeIf { it.isNotBlank() }?.let { put("email", it) }
+                    phone?.takeIf { it.isNotBlank() }?.let { put("phone", it) }
                 }
+                AppLogger.d("MQ_DB", "upsertUserRow: preparing data for userId=$userId, authProvider=$authProvider, email=$email")
                 AppLogger.d("MQ_AUTH", "AuthRepo: upsertUser data=$data")
                 apiService.upsertUser(data)
+                AppLogger.d("MQ_DB", "upsertUserRow: SUCCESS - user row created/updated")
                 AppLogger.d("MQ_AUTH", "AuthRepo: upsertUser SUCCESS")
                 Resource.Success(Unit)
             }
@@ -256,15 +292,57 @@ class AuthRepositoryImpl(
 
     // ── Account linking ──────────────────────────────────────────────────
 
+    /**
+     * Determines the auth_provider value based on current linked identities.
+     * Returns "google_and_phone" if both providers are linked, otherwise returns the single provider.
+     */
+    private suspend fun determineAuthProvider(): String {
+        return try {
+            val session = supabaseClient.auth.currentSessionOrNull() ?: return "anonymous"
+            val identities = session.user?.identities ?: return "anonymous"
+
+            val hasGoogle = identities.any { it.provider == "google" }
+            val hasPhone = !session.user?.phone.isNullOrBlank()
+
+            when {
+                hasGoogle && hasPhone -> "google_and_phone"
+                hasGoogle -> "google"
+                hasPhone -> "phone"
+                else -> "anonymous"
+            }
+        } catch (e: Exception) {
+            AppLogger.e("MQ_DB", "determineAuthProvider: failed", e)
+            "anonymous"
+        }
+    }
+
     override suspend fun linkAccountWithGoogle(): Resource<Unit> {
         return try {
             if (AppConstants.USE_MOCK_DATA) {
+                AppLogger.d("MQ_DB", "linkAccountWithGoogle: MOCK MODE")
                 Resource.Success(Unit)
             } else {
+                AppLogger.d("MQ_DB", "linkAccountWithGoogle: calling supabaseClient.auth.linkIdentity(Google)...")
                 supabaseClient.auth.linkIdentity(Google)
+                AppLogger.d("MQ_DB", "linkAccountWithGoogle: identity linked, updating database...")
+
+                // Get current user and update auth_provider in database
+                val session = supabaseClient.auth.currentSessionOrNull()
+                val userId = session?.user?.id
+                if (userId != null) {
+                    val newAuthProvider = determineAuthProvider()
+                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: updating auth_provider to=$newAuthProvider for userId=$userId")
+                    apiService.updateProfile(userId, buildJsonObject {
+                        put("auth_provider", JsonPrimitive(newAuthProvider))
+                    })
+                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: auth_provider updated")
+                }
+
+                AppLogger.d("MQ_DB", "linkAccountWithGoogle: SUCCESS")
                 Resource.Success(Unit)
             }
         } catch (e: Exception) {
+            AppLogger.e("MQ_DB", "linkAccountWithGoogle: FAILED", e)
             AppLogger.e("AuthRepo", "Link Google account failed", e)
             Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
@@ -273,14 +351,32 @@ class AuthRepositoryImpl(
     override suspend fun linkAccountWithPhone(phoneNumber: String): Resource<Unit> {
         return try {
             if (AppConstants.USE_MOCK_DATA) {
+                AppLogger.d("MQ_DB", "linkAccountWithPhone: MOCK MODE")
                 Resource.Success(Unit)
             } else {
+                AppLogger.d("MQ_DB", "linkAccountWithPhone: updating auth user with phone=$phoneNumber")
                 supabaseClient.auth.updateUser {
                     this.phone = phoneNumber
                 }
+
+                // Update database with phone and auth_provider
+                val session = supabaseClient.auth.currentSessionOrNull()
+                val userId = session?.user?.id
+                if (userId != null) {
+                    val newAuthProvider = determineAuthProvider()
+                    AppLogger.d("MQ_DB", "linkAccountWithPhone: updating database for userId=$userId, phone=$phoneNumber, auth_provider=$newAuthProvider")
+                    apiService.updateProfile(userId, buildJsonObject {
+                        put("phone", JsonPrimitive(phoneNumber))
+                        put("auth_provider", JsonPrimitive(newAuthProvider))
+                    })
+                    AppLogger.d("MQ_DB", "linkAccountWithPhone: database updated")
+                }
+
+                AppLogger.d("MQ_DB", "linkAccountWithPhone: SUCCESS")
                 Resource.Success(Unit)
             }
         } catch (e: Exception) {
+            AppLogger.e("MQ_DB", "linkAccountWithPhone: FAILED for phone=$phoneNumber", e)
             AppLogger.e("AuthRepo", "Link phone number failed", e)
             Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
@@ -291,8 +387,10 @@ class AuthRepositoryImpl(
     override suspend fun updateProfile(userId: String, fields: Map<String, Any>): Resource<Unit> {
         return try {
             if (AppConstants.USE_MOCK_DATA) {
+                AppLogger.d("MQ_DB", "updateProfile: MOCK MODE for userId=$userId")
                 Resource.Success(Unit)
             } else {
+                AppLogger.d("MQ_DB", "updateProfile: updating userId=$userId with fields=${fields.keys}")
                 val jsonFields = buildJsonObject {
                     fields.forEach { (key, value) ->
                         when (value) {
@@ -306,9 +404,11 @@ class AuthRepositoryImpl(
                     }
                 }
                 apiService.updateProfile(userId, jsonFields)
+                AppLogger.d("MQ_DB", "updateProfile: SUCCESS for userId=$userId")
                 Resource.Success(Unit)
             }
         } catch (e: Exception) {
+            AppLogger.e("MQ_DB", "updateProfile: FAILED for userId=$userId", e)
             AppLogger.e("AuthRepo", "Update profile failed", e)
             Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
@@ -332,6 +432,10 @@ class AuthRepositoryImpl(
                     gradeLabel = profile.user.gradeLabel,
                     authProvider = profile.user.authProvider,
                     isAnonymous = profile.user.authProvider == "anonymous",
+                    email = profile.user.email,
+                    phone = profile.user.phone,
+                    countryId = profile.user.countryId,
+                    cityId = profile.user.cityId,
                     countryName = profile.user.countryName,
                     cityName = profile.user.cityName,
                     schoolName = profile.user.schoolName
@@ -343,24 +447,54 @@ class AuthRepositoryImpl(
         }
     }
 
+    override suspend fun getCurrentUserEmail(): String? {
+        return if (AppConstants.USE_MOCK_DATA) {
+            null
+        } else {
+            val email = supabaseClient.auth.currentSessionOrNull()?.user?.email
+            AppLogger.d("MQ_DB", "getCurrentUserEmail: retrieved email=${if (email != null) "***" else "NULL"}")
+            email
+        }
+    }
+
     override suspend fun isAnonymous(): Boolean {
         return if (AppConstants.USE_MOCK_DATA) {
             false
         } else {
-            val session = supabaseClient.auth.currentSessionOrNull()
-            session?.user?.email.isNullOrBlank() && session?.user?.phone.isNullOrBlank()
+            try {
+                val session = supabaseClient.auth.currentSessionOrNull()
+                val userId = session?.user?.id ?: return true
+
+                // Check both session state and profile auth_provider
+                val sessionIsAnon = session.user?.email.isNullOrBlank() && session.user?.phone.isNullOrBlank()
+
+                // Also check the profile auth_provider for confirmation
+                val profile = try { apiService.getProfile(userId) } catch (_: Exception) { null }
+                val profileIsAnon = profile?.user?.authProvider == "anonymous"
+
+                val result = sessionIsAnon && profileIsAnon
+                AppLogger.d("MQ_DB", "isAnonymous: sessionIsAnon=$sessionIsAnon, profileIsAnon=$profileIsAnon, result=$result")
+                result
+            } catch (e: Exception) {
+                AppLogger.e("MQ_DB", "isAnonymous: check failed", e)
+                false
+            }
         }
     }
 
     override suspend fun signOut(): Resource<Unit> {
         return try {
             if (AppConstants.USE_MOCK_DATA) {
+                AppLogger.d("MQ_DB", "signOut: MOCK MODE")
                 Resource.Success(Unit)
             } else {
+                AppLogger.d("MQ_DB", "signOut: calling supabaseClient.auth.signOut()...")
                 supabaseClient.auth.signOut()
+                AppLogger.d("MQ_DB", "signOut: SUCCESS")
                 Resource.Success(Unit)
             }
         } catch (e: Exception) {
+            AppLogger.e("MQ_DB", "signOut: FAILED", e)
             AppLogger.e("AuthRepo", "Sign out failed", e)
             Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
@@ -384,6 +518,10 @@ class AuthRepositoryImpl(
                                 gradeLabel = profile.user.gradeLabel,
                                 authProvider = profile.user.authProvider,
                                 isAnonymous = profile.user.authProvider == "anonymous",
+                                email = profile.user.email,
+                                phone = profile.user.phone,
+                                countryId = profile.user.countryId,
+                                cityId = profile.user.cityId,
                                 countryName = profile.user.countryName,
                                 cityName = profile.user.cityName,
                                 schoolName = profile.user.schoolName
@@ -396,6 +534,137 @@ class AuthRepositoryImpl(
                     else -> null
                 }
             }
+        }
+    }
+
+    // ── Lightweight session observer ─────────────────────────────────────
+
+    override fun observeSessionUserId(): Flow<String?> {
+        return if (AppConstants.USE_MOCK_DATA) {
+            flow { emit(null) }
+        } else {
+            supabaseClient.auth.sessionStatus.map { status ->
+                when (status) {
+                    is SessionStatus.Authenticated -> {
+                        val userId = status.session.user?.id
+                        AppLogger.d("MQ_AUTH", "observeSessionUserId: Authenticated, userId=$userId")
+                        userId
+                    }
+                    else -> {
+                        AppLogger.d("MQ_AUTH", "observeSessionUserId: status=${status::class.simpleName}")
+                        null
+                    }
+                }
+            }
+        }
+    }
+
+    // ── Account linking & duplicate detection ─────────────────────────────
+
+    override suspend fun findExistingUser(email: String?, phone: String?): ExistingUserInfo? {
+        return try {
+            AppLogger.d("MQ_DB", "findExistingUser: searching by email=${email != null}, phone=${phone != null}")
+            val json = when {
+                !email.isNullOrBlank() -> apiService.findUserByEmail(email)
+                !phone.isNullOrBlank() -> apiService.findUserByPhone(phone)
+                else -> null
+            } ?: return null.also { AppLogger.d("MQ_DB", "findExistingUser: NO MATCH FOUND") }
+
+            AppLogger.d("MQ_DB", "findExistingUser: MATCH FOUND - user exists")
+            AppLogger.d("MQ_AUTH", "findExistingUser: found=$json")
+            ExistingUserInfo(
+                id = json["id"]?.jsonPrimitive?.content ?: return null,
+                displayName = json["display_name"]?.jsonPrimitive?.content ?: "",
+                authProvider = json["auth_provider"]?.jsonPrimitive?.content ?: "",
+                totalXp = json["total_xp"]?.jsonPrimitive?.long ?: 0L,
+                level = json["level"]?.jsonPrimitive?.int ?: 1,
+            )
+        } catch (e: Exception) {
+            AppLogger.e("MQ_DB", "findExistingUser: FAILED", e)
+            AppLogger.e("MQ_AUTH", "findExistingUser failed", e)
+            null
+        }
+    }
+
+    override suspend fun mergeUsers(fromId: String, toId: String): Resource<Unit> {
+        return try {
+            if (AppConstants.USE_MOCK_DATA) {
+                AppLogger.d("MQ_DB", "mergeUsers: MOCK MODE")
+                return Resource.Success(Unit)
+            }
+            AppLogger.d("MQ_DB", "mergeUsers: STARTING merge from=$fromId → to=$toId")
+            apiService.mergeUsers(fromId, toId)
+            AppLogger.d("MQ_DB", "mergeUsers: SUCCESS - all data migrated")
+            AppLogger.d("MQ_AUTH", "mergeUsers: from=$fromId → to=$toId")
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            AppLogger.e("MQ_DB", "mergeUsers: FAILED from=$fromId to=$toId", e)
+            AppLogger.e("MQ_AUTH", "mergeUsers failed", e)
+            Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
+        }
+    }
+
+    override suspend fun linkPhoneInitiate(phoneNumber: String): Resource<Unit> {
+        return try {
+            if (AppConstants.USE_MOCK_DATA) {
+                AppLogger.d("MQ_DB", "linkPhoneInitiate: MOCK MODE")
+                return Resource.Success(Unit)
+            }
+            AppLogger.d("MQ_DB", "linkPhoneInitiate: STARTING OTP send to phone=$phoneNumber")
+            AppLogger.d("MQ_AUTH", "linkPhoneInitiate: sending OTP to $phoneNumber")
+            supabaseClient.auth.signInWith(Phone) {
+                this.phone = phoneNumber
+            }
+            AppLogger.d("MQ_DB", "linkPhoneInitiate: SUCCESS - OTP sent to $phoneNumber")
+            AppLogger.d("MQ_AUTH", "linkPhoneInitiate: OTP sent")
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            AppLogger.e("MQ_DB", "linkPhoneInitiate: FAILED for phone=$phoneNumber", e)
+            AppLogger.e("MQ_AUTH", "linkPhoneInitiate failed", e)
+            Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
+        }
+    }
+
+    override suspend fun linkPhoneVerify(phoneNumber: String, otp: String): Resource<Unit> {
+        return try {
+            if (AppConstants.USE_MOCK_DATA) {
+                AppLogger.d("MQ_DB", "linkPhoneVerify: MOCK MODE")
+                return Resource.Success(Unit)
+            }
+            AppLogger.d("MQ_DB", "linkPhoneVerify: STARTING OTP verification for phone=$phoneNumber")
+            AppLogger.d("MQ_AUTH", "linkPhoneVerify: verifying OTP for $phoneNumber")
+            supabaseClient.auth.verifyPhoneOtp(
+                type = io.github.jan.supabase.auth.OtpType.Phone.SMS,
+                phone = phoneNumber,
+                token = otp,
+            )
+            AppLogger.d("MQ_DB", "linkPhoneVerify: OTP verified successfully")
+            // Now link the phone to the current user
+            AppLogger.d("MQ_DB", "linkPhoneVerify: updating auth user with phone=$phoneNumber")
+            supabaseClient.auth.updateUser {
+                this.phone = phoneNumber
+            }
+
+            // Update database with phone and auth_provider
+            val session = supabaseClient.auth.currentSessionOrNull()
+            val userId = session?.user?.id
+            if (userId != null) {
+                val newAuthProvider = determineAuthProvider()
+                AppLogger.d("MQ_DB", "linkPhoneVerify: updating database for userId=$userId, phone=$phoneNumber, auth_provider=$newAuthProvider")
+                apiService.updateProfile(userId, buildJsonObject {
+                    put("phone", JsonPrimitive(phoneNumber))
+                    put("auth_provider", JsonPrimitive(newAuthProvider))
+                })
+                AppLogger.d("MQ_DB", "linkPhoneVerify: database updated")
+            }
+
+            AppLogger.d("MQ_DB", "linkPhoneVerify: SUCCESS - phone linked to account")
+            AppLogger.d("MQ_AUTH", "linkPhoneVerify: phone linked successfully")
+            Resource.Success(Unit)
+        } catch (e: Exception) {
+            AppLogger.e("MQ_DB", "linkPhoneVerify: FAILED for phone=$phoneNumber", e)
+            AppLogger.e("MQ_AUTH", "linkPhoneVerify failed", e)
+            Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
     }
 }

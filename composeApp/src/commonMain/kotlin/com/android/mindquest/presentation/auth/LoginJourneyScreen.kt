@@ -203,6 +203,7 @@ fun LoginJourneyScreen(
     val backendCountries by viewModel.countries.collectAsState()
     val backendCities by viewModel.cities.collectAsState()
     val backendGrades by viewModel.grades.collectAsState()
+    val duplicateEmailError by viewModel.duplicateEmailError.collectAsState()
 
     // After splash finishes, checkSession() updates sessionCheck.
     // CHECKING → do nothing (splash still playing or check in progress).
@@ -226,6 +227,15 @@ fun LoginJourneyScreen(
         }
     }
 
+    // Show duplicate email error dialog if triggered (FIX #5)
+    if (duplicateEmailError != null) {
+        DuplicateEmailDialog(
+            email = duplicateEmailError!!.email,
+            onSignInInstead = { viewModel.handleDuplicateEmailSignInInstead() },
+            onRetry = { viewModel.handleDuplicateEmailRetry() },
+        )
+    }
+
     AnimatedContent(
         targetState = currentStep,
         transitionSpec = {
@@ -247,11 +257,21 @@ fun LoginJourneyScreen(
                 },
             )
             JourneyStep.USER_TYPE -> UserTypeScreen(
-                onNewUser = { currentStep = JourneyStep.ONBOARDING },
+                onNewUser = {
+                    // Skip slides if already seen on this device
+                    currentStep = if (viewModel.hasSeenOnboarding) {
+                        JourneyStep.STEP1
+                    } else {
+                        JourneyStep.ONBOARDING
+                    }
+                },
                 onExistingUser = { currentStep = JourneyStep.EXISTING_LOGIN },
             )
             JourneyStep.ONBOARDING -> OnboardingScreen(
-                onDone = { currentStep = JourneyStep.STEP1 },
+                onDone = {
+                    viewModel.markOnboardingSeen()
+                    currentStep = JourneyStep.STEP1
+                },
             )
             JourneyStep.STEP1 -> ProfileStep1(
                 data = profileData,
@@ -282,31 +302,24 @@ fun LoginJourneyScreen(
                 data = profileData.copy(name = formattedName),
                 onBack = { currentStep = JourneyStep.STEP2 },
                 onGoogle = {
-                    val resolvedGrade = viewModel.resolveGradeId(profileData.grade)
-                    val resolvedCountry = viewModel.resolveCountryId(profileData.country)
-                    val resolvedCity = viewModel.resolveCityId(profileData.city)
-                    println("DEBUG [MQ_AUTH]: STEP3 onGoogle — grade='${profileData.grade}'→'$resolvedGrade', country='${profileData.country}'→'$resolvedCountry', city='${profileData.city}'→'$resolvedCity'")
+                    // Pass raw labels — ViewModel resolves to IDs asynchronously
                     val profile = OnboardingProfile(
                         displayName = formattedName,
                         avatarId = profileData.avatarId,
-                        gradeId = resolvedGrade,
-                        countryId = resolvedCountry,
-                        cityId = resolvedCity,
+                        gradeLabel = profileData.grade,
+                        countryName = profileData.country,
+                        cityName = profileData.city,
                         schoolName = profileData.school.takeIf { it.isNotBlank() },
                     )
                     viewModel.signInWithGoogle(profile)
                 },
                 onAnonymous = {
-                    val resolvedGrade = viewModel.resolveGradeId(profileData.grade)
-                    val resolvedCountry = viewModel.resolveCountryId(profileData.country)
-                    val resolvedCity = viewModel.resolveCityId(profileData.city)
-                    println("DEBUG [MQ_AUTH]: STEP3 onAnonymous — grade='${profileData.grade}'→'$resolvedGrade', country='${profileData.country}'→'$resolvedCountry', city='${profileData.city}'→'$resolvedCity'")
                     val profile = OnboardingProfile(
                         displayName = formattedName,
                         avatarId = profileData.avatarId,
-                        gradeId = resolvedGrade,
-                        countryId = resolvedCountry,
-                        cityId = resolvedCity,
+                        gradeLabel = profileData.grade,
+                        countryName = profileData.country,
+                        cityName = profileData.city,
                         schoolName = profileData.school.takeIf { it.isNotBlank() },
                     )
                     viewModel.signInAnonymously(profile)
@@ -315,9 +328,9 @@ fun LoginJourneyScreen(
                     val profile = OnboardingProfile(
                         displayName = formattedName,
                         avatarId = profileData.avatarId,
-                        gradeId = viewModel.resolveGradeId(profileData.grade),
-                        countryId = viewModel.resolveCountryId(profileData.country),
-                        cityId = viewModel.resolveCityId(profileData.city),
+                        gradeLabel = profileData.grade,
+                        countryName = profileData.country,
+                        cityName = profileData.city,
                         schoolName = profileData.school.takeIf { it.isNotBlank() },
                     )
                     viewModel.setPendingProfile(profile)
@@ -325,7 +338,7 @@ fun LoginJourneyScreen(
                     currentStep = JourneyStep.PHONE_AUTH
                 },
                 authState = authState,
-                onDone = { println("DEBUG [MQ_AUTH]: WelcomeStep3 onDone() called → DONE"); currentStep = JourneyStep.DONE },
+                onDone = { currentStep = JourneyStep.DONE },
             )
             }
             JourneyStep.PHONE_AUTH -> PhoneAuthFlow(
@@ -834,22 +847,8 @@ private fun ExistingLoginScreen(
                         }
                     }
 
-                    Spacer(modifier = Modifier.height(12.dp))
-
-                    // Phone — secondary
-                    OutlinedButton(
-                        onClick = onPhone,
-                        modifier = Modifier.fillMaxWidth().height(54.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
-                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = 0.08f)),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("\uD83D\uDCF1", fontSize = 18.sp)
-                            Spacer(Modifier.width(12.dp))
-                            Text("Continue with Phone", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.8f))
-                        }
-                    }
+                    // Phone — hidden for now (Google-only launch)
+                    // TODO: Uncomment when phone auth is enabled
 
                     Spacer(modifier = Modifier.height(24.dp))
 
@@ -1373,17 +1372,14 @@ private fun WelcomeStep3(
 
     // Drive progress bar locally, complete when authState is success
     LaunchedEffect(isLoading) {
-        println("DEBUG [MQ_AUTH]: WelcomeStep3 LaunchedEffect(isLoading=$isLoading)")
         if (isLoading) {
             while (loadPct < 80) {
                 delay(120)
                 loadPct = (loadPct + (4..12).random()).coerceAtMost(80)
             }
-            println("DEBUG [MQ_AUTH]: WelcomeStep3 progress reached 80, waiting 30s timeout...")
             // Safety timeout: if stuck at 80 for 30s, reset
             delay(30_000)
             if (isLoading && loadPct < 100) {
-                println("DEBUG [MQ_AUTH]: WelcomeStep3 TIMEOUT at 30s — resetting loading")
                 isLoading = false
                 loadPct = 0
             }
@@ -1392,24 +1388,15 @@ private fun WelcomeStep3(
     // When auth succeeds, finish progress → go to done
     // Use authAttempt as extra key so even identical error values re-trigger
     LaunchedEffect(authState, authAttempt) {
-        println("DEBUG [MQ_AUTH]: WelcomeStep3 LaunchedEffect(authState=$authState, attempt=$authAttempt) isLoading=$isLoading")
         if (authState is UiState.Success && isLoading) {
-            println("DEBUG [MQ_AUTH]: WelcomeStep3 authState=Success & isLoading → completing!")
             loadPct = 100
             delay(400)
             onDone()
         }
-        if (authState is UiState.Success && !isLoading) {
-            println("DEBUG [MQ_AUTH]: WelcomeStep3 authState=Success BUT isLoading=false → MISSED!")
-        }
         // On error, reset loading so user can try again
         if (authState is UiState.Error && isLoading) {
-            println("DEBUG [MQ_AUTH]: WelcomeStep3 authState=Error & isLoading → resetting. Error: ${(authState as UiState.Error).message}")
             isLoading = false
             loadPct = 0
-        }
-        if (authState is UiState.Error && !isLoading) {
-            println("DEBUG [MQ_AUTH]: WelcomeStep3 authState=Error BUT isLoading=false. Error: ${(authState as UiState.Error).message}")
         }
     }
 
@@ -1648,7 +1635,7 @@ private fun WelcomeStep3(
                 } else {
                     // Google — primary CTA with strong gradient
                     Button(
-                        onClick = { println("DEBUG [MQ_AUTH]: WelcomeStep3 Google button clicked"); authAttempt++; isLoading = true; onGoogle() },
+                        onClick = { authAttempt++; isLoading = true; onGoogle() },
                         modifier = Modifier.fillMaxWidth().height(52.dp),
                         shape = RoundedCornerShape(14.dp),
                         colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
@@ -1669,26 +1656,17 @@ private fun WelcomeStep3(
 
                     Spacer(modifier = Modifier.height(8.dp))
 
-                    // Phone — secondary CTA
-                    OutlinedButton(
-                        onClick = onPhone,
-                        modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        border = BorderStroke(1.5.dp, Color.White.copy(alpha = 0.25f)),
-                        colors = ButtonDefaults.outlinedButtonColors(containerColor = Color.White.copy(alpha = 0.12f)),
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("\uD83D\uDCF1", fontSize = 16.sp)
-                            Spacer(Modifier.width(10.dp))
-                            Text("Continue with Phone", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.9f))
-                        }
-                    }
-
-                    Spacer(modifier = Modifier.height(8.dp))
+                    // Phone — hidden for now (Google-only launch)
+                    // TODO: Uncomment when phone auth is enabled
+                    // OutlinedButton(
+                    //     onClick = onPhone,
+                    //     modifier = Modifier.fillMaxWidth().height(48.dp),
+                    //     ...
+                    // )
 
                     // Anonymous — tertiary CTA
                     OutlinedButton(
-                        onClick = { println("DEBUG [MQ_AUTH]: WelcomeStep3 Anonymous button clicked"); authAttempt++; isLoading = true; onAnonymous() },
+                        onClick = { authAttempt++; isLoading = true; onAnonymous() },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape = RoundedCornerShape(14.dp),
                         border = BorderStroke(1.dp, Color.White.copy(alpha = 0.15f)),
@@ -2333,6 +2311,74 @@ private fun JourneyGradientButton(
                 text, fontSize = 15.sp, fontWeight = FontWeight.ExtraBold,
                 color = if (enabled) Color.White else TextMuted,
             )
+        }
+    }
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// DUPLICATE EMAIL DIALOG  —  Recovery options for duplicate account
+// ═══════════════════════════════════════════════════════════════════
+@Composable
+private fun DuplicateEmailDialog(
+    email: String,
+    onSignInInstead: () -> Unit,
+    onRetry: () -> Unit,
+) {
+    Dialog(
+        onDismissRequest = onSignInInstead,
+        properties = androidx.compose.ui.window.DialogProperties(dismissOnBackPress = true),
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth(0.85f)
+                .clip(RoundedCornerShape(20.dp))
+                .background(Color.White)
+                .padding(24.dp),
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Text(
+                    "Account Already Exists",
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = TextDark,
+                )
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    "The email \"$email\" is already registered.",
+                    fontSize = 14.sp,
+                    color = TextMuted,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // Sign in instead button
+                Button(
+                    onClick = onSignInInstead,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryColor),
+                ) {
+                    Text("Sign In Instead", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                }
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // Try different account button
+                OutlinedButton(
+                    onClick = onRetry,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    border = BorderStroke(1.5.dp, PrimaryColor),
+                ) {
+                    Text("Use Different Account", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = PrimaryColor)
+                }
+            }
         }
     }
 }

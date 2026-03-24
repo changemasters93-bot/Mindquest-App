@@ -127,8 +127,10 @@ fun MindquestTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
-    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
-    val extraColors = if (darkTheme) DarkMindquestExtraColors else LightMindquestExtraColors
+    val colorScheme = LightColorScheme
+//    val colorScheme = if (darkTheme) DarkColorScheme else LightColorScheme
+    val extraColors = LightMindquestExtraColors
+//    val extraColors = if (darkTheme) DarkMindquestExtraColors else LightMindquestExtraColors
 
     CompositionLocalProvider(
         LocalDimensions provides DefaultDimensions,

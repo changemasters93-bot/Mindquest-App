@@ -8,6 +8,8 @@ data class User(
     val gradeLabel: String = "",
     val authProvider: String, // google / phone / anonymous / google_and_phone
     val isAnonymous: Boolean,
+    val email: String? = null,
+    val phone: String? = null,
     val countryId: String? = null,
     val countryName: String? = null,
     val cityId: String? = null,

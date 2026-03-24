@@ -1,5 +1,12 @@
 import org.jetbrains.kotlin.gradle.ExperimentalKotlinGradlePluginApi
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.util.Properties
+
+// Load local.properties for signing credentials (gitignored)
+val localProps = Properties().apply {
+    val file = rootProject.file("local.properties")
+    if (file.exists()) load(file.inputStream())
+}
 
 plugins {
     alias(libs.plugins.kotlin.multiplatform)
@@ -7,7 +14,12 @@ plugins {
     alias(libs.plugins.compose.multiplatform)
     alias(libs.plugins.compose.compiler)
     alias(libs.plugins.kotlin.serialization)
-    alias(libs.plugins.sqldelight)
+    alias(libs.plugins.google.services)
+    alias(libs.plugins.firebase.crashlytics)
+    // SQLDelight plugin disabled: v2.2.1 native klibs require Kotlin 2.2.x ABI.
+    // Offline cache is infrastructure-only, not wired to the main flow.
+    // Re-enable when upgrading Kotlin to 2.2.x.
+    // alias(libs.plugins.sqldelight)
 }
 
 kotlin {
@@ -61,7 +73,9 @@ kotlin {
             // Koin
             implementation(libs.koin.core)
             implementation(libs.koin.compose)
-            implementation(libs.koin.compose.viewmodel)
+            // koin-compose-viewmodel removed: its IR is broken on iOS/Native
+            // with Kotlin 2.1.0 + Compose 1.7.3 (causes SIGABRT).
+            // ViewModels are registered as factory{} and retrieved via koinInject<T>().
 
             // Kotlinx
             implementation(libs.kotlinx.serialization.json)
@@ -74,23 +88,24 @@ kotlin {
             // Coil
             implementation(libs.coil.compose)
             implementation(libs.coil.network.ktor)
-
-            // SQLDelight
-            implementation(libs.sqldelight.coroutines)
         }
 
         androidMain.dependencies {
             implementation(libs.androidx.core.ktx)
             implementation(libs.androidx.activity.compose)
-            implementation(libs.ktor.client.android)
+            implementation(libs.ktor.client.okhttp)
             implementation(libs.kotlinx.coroutines.android)
             implementation(libs.koin.android)
-            implementation(libs.sqldelight.android.driver)
+            // SQLDelight disabled: v2.2.1 klibs ABI incompatible with Kotlin 2.1.0
+            // implementation(libs.sqldelight.coroutines)
+            // implementation(libs.sqldelight.android.driver)
         }
 
         iosMain.dependencies {
             implementation(libs.ktor.client.darwin)
-            implementation(libs.sqldelight.native.driver)
+            // SQLDelight native driver excluded: v2.2.1 klibs require Kotlin 2.2.x ABI.
+            // Offline cache is infrastructure-only (not wired to main flow yet).
+            // Re-enable when upgrading Kotlin to 2.2.x.
         }
     }
 }
@@ -110,9 +125,25 @@ android {
         buildConfigField("String", "SUPABASE_ANON_KEY", "\"${project.findProperty("SUPABASE_ANON_KEY") ?: ""}\"")
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = rootProject.file(localProps.getProperty("RELEASE_STORE_FILE", "mindquest-release.keystore"))
+            storePassword = localProps.getProperty("RELEASE_STORE_PASSWORD", "")
+            keyAlias = localProps.getProperty("RELEASE_KEY_ALIAS", "")
+            keyPassword = localProps.getProperty("RELEASE_KEY_PASSWORD", "")
+        }
+    }
+
     buildTypes {
+        debug {
+            isDebuggable = true
+            applicationIdSuffix = ".debug"
+            versionNameSuffix = "-debug"
+        }
         release {
             isMinifyEnabled = true
+            isShrinkResources = true
+            signingConfig = signingConfigs.getByName("release")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
@@ -129,12 +160,32 @@ android {
         compose = true
         buildConfig = true
     }
-}
 
-sqldelight {
-    databases {
-        create("MindquestDatabase") {
-            packageName.set("com.android.mindquest.cache")
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+            excludes += "/META-INF/versions/9/previous-compilation-data.bin"
         }
     }
 }
+
+// ── Android variant-specific dependencies ────────────────────────────
+dependencies {
+    // Chucker: HTTP inspector (debug) / no-op (release)
+    debugImplementation(libs.chucker.library)
+    releaseImplementation(libs.chucker.noop)
+    // Firebase (BOM must be in top-level dependencies, not KMP sourceSets)
+    implementation(platform(libs.firebase.bom))
+    implementation(libs.firebase.analytics)
+    implementation(libs.firebase.crashlytics)
+}
+
+// SQLDelight config disabled along with plugin (see plugins block comment).
+// Re-enable when upgrading Kotlin to 2.2.x.
+// sqldelight {
+//     databases {
+//         create("MindquestDatabase") {
+//             packageName.set("com.android.mindquest.cache")
+//         }
+//     }
+// }

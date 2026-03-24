@@ -6,38 +6,55 @@ import io.github.jan.supabase.auth.Auth
 import io.github.jan.supabase.createSupabaseClient
 import io.github.jan.supabase.postgrest.Postgrest
 import io.github.jan.supabase.realtime.Realtime
+import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.plugins.HttpTimeout
-import kotlinx.atomicfu.locks.synchronized
 import kotlinx.serialization.json.Json
 
 /**
  * Singleton provider for the Supabase client.
  *
  * Call [createClient] once during app initialization (typically from
- * the DI graph) and retain the returned [SupabaseClient] for the
- * lifetime of the process.
+ * the DI graph via Koin `single {}`) and retain the returned
+ * [SupabaseClient] for the lifetime of the process.
  *
- * Thread-safe: uses @Volatile + synchronized for double-checked locking.
+ * Thread-safety: Koin's `single {}` guarantees the factory is invoked
+ * at most once, so double-checked locking is unnecessary.
+ * Previous approach using SynchronizedObject() inheritance caused
+ * SIGABRT on Kotlin/Native (iOS) with certain atomicfu versions.
  */
 object SupabaseClientProvider {
 
-    @Volatile
     private var instance: SupabaseClient? = null
 
-    fun createClient(url: String, key: String): SupabaseClient {
-        return instance ?: synchronized(this) {
-            instance ?: buildClient(url, key).also { instance = it }
-        }
+    fun createClient(
+        url: String,
+        key: String,
+        engine: HttpClientEngine? = null,
+    ): SupabaseClient {
+        // Fast path: return cached instance
+        instance?.let { return it }
+        // Build and cache (Koin single{} ensures this is called once)
+        return buildClient(url, key, engine).also { instance = it }
     }
 
     @OptIn(SupabaseInternal::class)
-    private fun buildClient(url: String, key: String): SupabaseClient {
+    private fun buildClient(url: String, key: String, engine: HttpClientEngine?): SupabaseClient {
         return createSupabaseClient(
             supabaseUrl = url,
             supabaseKey = key,
         ) {
+            // ── Custom HTTP engine (e.g. OkHttp + Chucker on Android) ─
+            if (engine != null) {
+                httpEngine = engine
+            }
+
             // ── Authentication ─────────────────────────────────────────
-            install(Auth)
+            // Configure the custom deep-link scheme so that OAuth
+            // redirects land back in the app (mindquest://callback).
+            install(Auth) {
+                scheme = "mindquest"
+                host = "callback"
+            }
 
             // ── Database (PostgREST) ───────────────────────────────────
             install(Postgrest)

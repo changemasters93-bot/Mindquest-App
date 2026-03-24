@@ -3,6 +3,7 @@ package com.android.mindquest.di
 import com.android.mindquest.cache.OfflineCacheManager
 import com.android.mindquest.core.constants.AppConstants
 import com.android.mindquest.core.network.SupabaseClientProvider
+import io.ktor.client.engine.HttpClientEngine
 import com.android.mindquest.core.session.SessionProvider
 import com.android.mindquest.data.remote.ApiService
 import com.android.mindquest.data.repository.AuthRepositoryImpl
@@ -49,7 +50,6 @@ import com.android.mindquest.presentation.profile.ProfileViewModel
 import com.android.mindquest.presentation.quiz.QuizViewModel
 import com.android.mindquest.presentation.stats.StatsViewModel
 import com.android.mindquest.presentation.tournament.TournamentViewModel
-import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
 val appModule = module {
@@ -59,6 +59,7 @@ val appModule = module {
         SupabaseClientProvider.createClient(
             url = AppConstants.SUPABASE_URL,
             key = AppConstants.SUPABASE_ANON_KEY,
+            engine = getOrNull<HttpClientEngine>(),
         )
     }
 
@@ -107,12 +108,15 @@ val appModule = module {
     factory { GetReferenceDataUseCase(get()) }
 
     // ── ViewModels ──────────────────────────────────────────────────────
-    viewModelOf(::AuthViewModel)
-    viewModelOf(::HomeViewModel)
-    viewModelOf(::ChaptersViewModel)
-    viewModelOf(::QuizViewModel)
-    viewModelOf(::LeaderboardViewModel)
-    viewModelOf(::StatsViewModel)
-    viewModelOf(::ProfileViewModel)
-    viewModelOf(::TournamentViewModel)
+    // Registered as factory{} instead of viewModelOf() to avoid the
+    // koin-compose-viewmodel IR crash on iOS/Native (Kotlin 2.1.0 + Compose 1.7.3).
+    // Retrieved via koinInject<T>() in composables.
+    single { AuthViewModel(get(), get(), get()) }  // single: auth state + reference data (grades/countries) are global
+    factory { HomeViewModel(get(), get(), get()) }
+    factory { ChaptersViewModel(get(), get()) }
+    factory { QuizViewModel(get(), get(), get(), get(), get()) }
+    factory { LeaderboardViewModel(get()) }
+    factory { StatsViewModel(get()) }
+    factory { ProfileViewModel(get(), get(), get(), get()) }
+    factory { TournamentViewModel(get(), get(), get(), get()) }
 }

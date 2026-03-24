@@ -451,9 +451,10 @@ fun QuizPlayScreen(
                 }
 
                 // Nudge hint (module quiz only, on wrong answers)
-                if (nudge != null) {
+                val currentNudge = nudge
+                if (currentNudge != null) {
                     Spacer(modifier = Modifier.height(6.dp))
-                    NudgeCard(nudge = nudge!!, accentColor = accentColor)
+                    NudgeCard(nudge = currentNudge, accentColor = accentColor)
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))

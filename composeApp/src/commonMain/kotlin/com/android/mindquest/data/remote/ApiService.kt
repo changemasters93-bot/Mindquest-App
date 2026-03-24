@@ -258,6 +258,39 @@ class ApiService(private val client: SupabaseClient) {
         client.postgrest.from("users").upsert(data)
     }
 
+    // ── Account linking & duplicate detection ──────────────────────────────
+
+    /** Find existing user by email. Returns null if not found. */
+    suspend fun findUserByEmail(email: String): JsonObject? {
+        return try {
+            client.postgrest.rpc(
+                function = "find_user_by_email",
+                parameters = buildJsonObject { put("p_email", email) }
+            ).decodeAsOrNull()
+        } catch (_: Exception) { null }
+    }
+
+    /** Find existing user by phone. Returns null if not found. */
+    suspend fun findUserByPhone(phone: String): JsonObject? {
+        return try {
+            client.postgrest.rpc(
+                function = "find_user_by_phone",
+                parameters = buildJsonObject { put("p_phone", phone) }
+            ).decodeAsOrNull()
+        } catch (_: Exception) { null }
+    }
+
+    /** Merge all data from one user to another (quiz attempts, XP, etc). */
+    suspend fun mergeUsers(fromId: String, toId: String) {
+        client.postgrest.rpc(
+            function = "merge_users",
+            parameters = buildJsonObject {
+                put("p_from_id", fromId)
+                put("p_to_id", toId)
+            }
+        )
+    }
+
     // ── Reference data (direct table reads) ──────────────────────────────
 
     suspend fun getGrades(): List<GradeDto> {

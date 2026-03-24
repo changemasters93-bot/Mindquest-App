@@ -86,6 +86,7 @@ private fun getBadges(stats: UserStats): List<Badge> = listOf(
 fun ProfileScreen(
     viewModel: ProfileViewModel,
     onSignOut: () -> Unit,
+    onLinkGoogle: (() -> Unit)? = null,
     userId: String = "current_user",
 ) {
     LaunchedEffect(userId) {
@@ -96,7 +97,7 @@ fun ProfileScreen(
 
     when (val state = profileState) {
         is UiState.Loading -> LoadingView()
-        is UiState.Success -> ProfileContent(data = state.data, onSignOut = onSignOut)
+        is UiState.Success -> ProfileContent(data = state.data, onSignOut = onSignOut, onLinkGoogle = onLinkGoogle)
         is UiState.Error -> ErrorView(message = state.message, onRetry = { viewModel.loadProfile(userId) })
         is UiState.Empty -> ErrorView(message = "Profile data not available.", onRetry = { viewModel.loadProfile(userId) })
         is UiState.Offline -> ErrorView(message = "You are offline. Please check your connection.", onRetry = { viewModel.loadProfile(userId) })
@@ -107,6 +108,7 @@ fun ProfileScreen(
 private fun ProfileContent(
     data: ProfileData,
     onSignOut: () -> Unit,
+    onLinkGoogle: (() -> Unit)? = null,
 ) {
     var visible by remember { mutableStateOf(false) }
     var selectedCertificate by remember { mutableStateOf<TournamentResult?>(null) }
@@ -221,7 +223,12 @@ private fun ProfileContent(
                 enter = fadeIn(tween(400, delayMillis = 550)) +
                     slideInVertically(tween(400, delayMillis = 550)) { it / 4 },
             ) {
-                SettingsSection(onSignOut = onSignOut)
+                SettingsSection(
+                    user = data.user,
+                    onSignOut = onSignOut,
+                    isAnonymous = data.user.authProvider == "anonymous",
+                    onLinkGoogle = onLinkGoogle,
+                )
             }
         }
 
@@ -229,9 +236,9 @@ private fun ProfileContent(
     }
 
     // Certificate full-view dialog overlay
-    if (selectedCertificate != null) {
+    selectedCertificate?.let { cert ->
         CertificateFullViewDialog(
-            result = selectedCertificate!!,
+            result = cert,
             userName = data.user.displayName,
             onDismiss = { selectedCertificate = null },
         )
@@ -755,7 +762,12 @@ private fun TournamentResultRow(
 // ── Settings Section ────────────────────────────────────────────────────────────
 
 @Composable
-private fun SettingsSection(onSignOut: () -> Unit) {
+private fun SettingsSection(
+    user: User,
+    onSignOut: () -> Unit,
+    isAnonymous: Boolean = false,
+    onLinkGoogle: (() -> Unit)? = null,
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -769,6 +781,173 @@ private fun SettingsSection(onSignOut: () -> Unit) {
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Account Information Section
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(text = "\uD83D\uDD10", fontSize = 22.sp)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Account",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = MindquestColors.TextPrimary,
+            )
+        }
+
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Auth Provider
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MindquestColors.Surface.copy(alpha = 0.5f),
+            ),
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(12.dp),
+            ) {
+                Text(
+                    text = "Login Method",
+                    fontSize = 12.sp,
+                    color = MindquestColors.TextSecondary,
+                    fontWeight = FontWeight.Medium,
+                )
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = when (user.authProvider) {
+                        "google" -> "🔵 Google Account"
+                        "phone" -> "📱 Phone Number"
+                        "google_and_phone" -> "🔵 Google + 📱 Phone"
+                        else -> "👤 Anonymous"
+                    },
+                    fontSize = 14.sp,
+                    color = MindquestColors.TextPrimary,
+                    fontWeight = FontWeight.SemiBold,
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Email
+        if (user.email != null) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MindquestColors.Surface.copy(alpha = 0.5f),
+                ),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                ) {
+                    Text(
+                        text = "Email Address",
+                        fontSize = 12.sp,
+                        color = MindquestColors.TextSecondary,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = user.email!!,
+                        fontSize = 13.sp,
+                        color = MindquestColors.TextPrimary,
+                        overflow = TextOverflow.Ellipsis,
+                        maxLines = 1,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        // Phone
+        if (user.phone != null) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MindquestColors.Surface.copy(alpha = 0.5f),
+                ),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                ) {
+                    Text(
+                        text = "Phone Number",
+                        fontSize = 12.sp,
+                        color = MindquestColors.TextSecondary,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = user.phone!!,
+                        fontSize = 13.sp,
+                        color = MindquestColors.TextPrimary,
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(10.dp))
+        }
+
+        // Location Info
+        if (!user.countryName.isNullOrEmpty() || !user.cityName.isNullOrEmpty() || !user.schoolName.isNullOrEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MindquestColors.Surface.copy(alpha = 0.5f),
+                ),
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(12.dp),
+                ) {
+                    Text(
+                        text = "Location & School",
+                        fontSize = 12.sp,
+                        color = MindquestColors.TextSecondary,
+                        fontWeight = FontWeight.Medium,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    if (!user.countryName.isNullOrEmpty()) {
+                        Text(
+                            text = "🌍 ${user.countryName}",
+                            fontSize = 13.sp,
+                            color = MindquestColors.TextPrimary,
+                        )
+                    }
+                    if (!user.cityName.isNullOrEmpty()) {
+                        Text(
+                            text = "🏙️ ${user.cityName}",
+                            fontSize = 13.sp,
+                            color = MindquestColors.TextPrimary,
+                        )
+                    }
+                    if (!user.schoolName.isNullOrEmpty()) {
+                        Text(
+                            text = "🏫 ${user.schoolName}",
+                            fontSize = 13.sp,
+                            color = MindquestColors.TextPrimary,
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+        } else {
+            Spacer(modifier = Modifier.height(16.dp))
+        }
+
+        // Settings Title
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(text = "\u2699\uFE0F", fontSize = 22.sp)
             Spacer(modifier = Modifier.width(8.dp))
@@ -811,6 +990,26 @@ private fun SettingsSection(onSignOut: () -> Unit) {
             onClick = { /* navigate to edit profile */ },
             modifier = Modifier.fillMaxWidth(),
         )
+
+        // Show "Link Google Account" for anonymous users
+        if (isAnonymous && onLinkGoogle != null) {
+            Spacer(modifier = Modifier.height(10.dp))
+
+            PrimaryButton(
+                text = "\uD83D\uDD17 Link Google Account",
+                onClick = onLinkGoogle,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Save your progress, enter tournaments & climb the leaderboard",
+                fontSize = 11.sp,
+                color = MindquestColors.TextSecondary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
 
         Spacer(modifier = Modifier.height(10.dp))
 

@@ -39,6 +39,12 @@ object ErrorMapper {
             msg.containsAny("email already", "already registered") ->
                 "This account already exists. Please sign in instead."
 
+            msg.containsAny("identity already exists", "identity is already linked") ->
+                "This provider is already linked to your account."
+
+            msg.containsAny("user already has", "cannot link") ->
+                "Unable to link this account. It may already be linked to another user."
+
             // ── Tournament ────────────────────────────────────────────
             msg.containsAny("already started or completed", "already participated") ->
                 "You've already participated in this tournament."

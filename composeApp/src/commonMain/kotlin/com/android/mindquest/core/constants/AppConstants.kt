@@ -14,11 +14,14 @@ object AppConstants {
     const val USE_MOCK_DATA: Boolean = false
 
     // ── Supabase ───────────────────────────────────────────────────────
+    // The anon key below is a PUBLIC client key — this is by design.
+    // Security is enforced server-side via Row Level Security (RLS) policies,
+    // not by keeping this key secret. Standard Supabase architecture.
 
-    /** Supabase project URL. Replace with real value before release. */
+    /** Supabase project URL. */
     const val SUPABASE_URL: String = "https://licxsuvpqoyjlremthwr.supabase.co"
 
-    /** Supabase anonymous / public API key. Replace with real value before release. */
+    /** Supabase anonymous / public API key (safe to embed in client apps). */
     const val SUPABASE_ANON_KEY: String = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxpY3hzdXZwcW95amxyZW10aHdyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzMxNjIzNjAsImV4cCI6MjA4ODczODM2MH0.lCcWJEGPlpaGdn3ag-chNpGrHVopxtCVRnzyyLESOxU"
 
     // ── Leaderboard ────────────────────────────────────────────────────

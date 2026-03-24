@@ -144,37 +144,8 @@ fun AccountLinkingSheet(
                 }
             }
 
-            Spacer(modifier = Modifier.height(10.dp))
-
-            // Phone Link Button
-            OutlinedButton(
-                onClick = onPhone,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(14.dp),
-                border = BorderStroke(1.5.dp, BorderLight),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    containerColor = Color.White,
-                ),
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        text = "\uD83D\uDCF1",
-                        fontSize = 16.sp,
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Link with Phone OTP",
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF374151),
-                    )
-                }
-            }
+            // Phone Link — hidden for now (Google-only launch)
+            // TODO: Uncomment when phone auth is enabled
 
             Spacer(modifier = Modifier.height(16.dp))
 

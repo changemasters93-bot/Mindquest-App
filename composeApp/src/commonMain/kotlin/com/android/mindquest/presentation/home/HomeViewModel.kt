@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.CoroutineExceptionHandler
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class HomeViewModel(
@@ -46,15 +47,36 @@ class HomeViewModel(
     /** Load dashboard, then generate daily challenges from modules. */
     private fun loadAll() {
         viewModelScope.launch(exceptionHandler) {
-            // 1. Load dashboard
             _dashboardState.update { UiState.Loading }
-            when (val result = getDashboard(userId)) {
+
+            // Wait for session to be ready (userId might be empty right after sign-in)
+            var currentUserId = userId
+            if (currentUserId.isBlank()) {
+                AppLogger.d("MQ_HOME", "loadAll: userId is EMPTY — waiting for session (max 5s)...")
+                repeat(10) {
+                    delay(500)
+                    currentUserId = userId
+                    if (currentUserId.isNotBlank()) return@repeat
+                }
+            }
+
+            if (currentUserId.isBlank()) {
+                AppLogger.e("MQ_HOME", "loadAll: userId still EMPTY after wait — aborting")
+                _dashboardState.update { UiState.Error("Session not ready. Please try again.") }
+                return@launch
+            }
+
+            AppLogger.d("MQ_HOME", "loadAll: loading dashboard for userId=${currentUserId.take(8)}...")
+            // 1. Load dashboard
+            when (val result = getDashboard(currentUserId)) {
                 is Resource.Success -> {
+                    AppLogger.d("MQ_HOME", "loadAll: dashboard SUCCESS")
                     _dashboardState.update { UiState.Success(result.data) }
                     // 2. Chain: generate daily challenges from loaded modules
                     generateChallenges(result.data.modules)
                 }
                 is Resource.Error -> {
+                    AppLogger.e("MQ_HOME", "loadAll: dashboard ERROR = ${result.message}")
                     _dashboardState.update { UiState.Error(result.message) }
                     _dailyChallenges.update { UiState.Empty }
                 }

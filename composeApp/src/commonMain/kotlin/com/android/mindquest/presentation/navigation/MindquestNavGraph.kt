@@ -21,6 +21,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.android.mindquest.core.constants.AppConstants
 import com.android.mindquest.core.session.SessionProvider
+import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.QuizBehavior
 import com.android.mindquest.domain.model.QuizConfig
 import com.android.mindquest.presentation.auth.AuthScreen
@@ -48,7 +49,6 @@ import com.android.mindquest.presentation.tournament.TournamentPlayScreen
 import com.android.mindquest.presentation.tournament.TournamentResultScreen
 import com.android.mindquest.presentation.tournament.TournamentViewModel
 import org.koin.compose.koinInject
-import org.koin.compose.viewmodel.koinViewModel
 
 @Composable
 fun MindquestNavGraph(
@@ -87,7 +87,7 @@ fun MindquestNavGraph(
         ) {
             // ── Login Journey (onboarding + profile setup + auth) ────────
             composable(NavRoutes.LOGIN_JOURNEY) {
-                val viewModel = koinViewModel<AuthViewModel>()
+                val viewModel = koinInject<AuthViewModel>()
                 LoginJourneyScreen(
                     viewModel = viewModel,
                     onComplete = {
@@ -100,7 +100,7 @@ fun MindquestNavGraph(
 
             // ── Auth ────────────────────────────────────────────────────
             composable(NavRoutes.AUTH) {
-                val viewModel = koinViewModel<AuthViewModel>()
+                val viewModel = koinInject<AuthViewModel>()
                 AuthScreen(
                     onAuthSuccess = {
                         navController.navigate(NavRoutes.HOME) {
@@ -113,7 +113,7 @@ fun MindquestNavGraph(
 
             // ── Main tabs ───────────────────────────────────────────────
             composable(NavRoutes.HOME) { backStackEntry ->
-                val viewModel = koinViewModel<HomeViewModel>()
+                val viewModel = koinInject<HomeViewModel>()
 
                 // ── Mark completed quiz as done locally ──────────────────
                 val completedQuizId = backStackEntry.savedStateHandle
@@ -224,12 +224,12 @@ fun MindquestNavGraph(
             }
 
             composable(NavRoutes.LEADERBOARD) {
-                val viewModel = koinViewModel<LeaderboardViewModel>()
+                val viewModel = koinInject<LeaderboardViewModel>()
                 LeaderboardScreen(viewModel = viewModel, userId = userId)
             }
 
             composable(NavRoutes.STATS) {
-                val viewModel = koinViewModel<StatsViewModel>()
+                val viewModel = koinInject<StatsViewModel>()
                 StatsScreen(
                     viewModel = viewModel,
                     userId = userId,
@@ -248,15 +248,30 @@ fun MindquestNavGraph(
             }
 
             composable(NavRoutes.PROFILE) {
-                val viewModel = koinViewModel<ProfileViewModel>()
+                val profileViewModel = koinInject<ProfileViewModel>()
+                val authViewModel = koinInject<AuthViewModel>()
+
+                // Observe auth state changes and reload profile when linking completes
+                LaunchedEffect(Unit) {
+                    authViewModel.authState.collect { authState ->
+                        if (authState is UiState.Success) {
+                            // Account linking completed, reload profile data
+                            profileViewModel.loadProfile(userId)
+                        }
+                    }
+                }
+
                 ProfileScreen(
-                    viewModel = viewModel,
+                    viewModel = profileViewModel,
                     userId = userId,
                     onSignOut = {
-                        viewModel.signOut()
+                        profileViewModel.signOut()
                         navController.navigate(NavRoutes.LOGIN_JOURNEY) {
                             popUpTo(0) { inclusive = true }
                         }
+                    },
+                    onLinkGoogle = {
+                        authViewModel.linkAccount("google")
                     },
                 )
             }
@@ -275,7 +290,7 @@ fun MindquestNavGraph(
                 val moduleTitle = entry.arguments?.getString(NavRoutes.ARG_MODULE_TITLE).orEmpty()
                 val moduleEmoji = entry.arguments?.getString(NavRoutes.ARG_MODULE_EMOJI).orEmpty()
                 val moduleColor = entry.arguments?.getString(NavRoutes.ARG_MODULE_COLOR).orEmpty()
-                val viewModel = koinViewModel<ChaptersViewModel>()
+                val viewModel = koinInject<ChaptersViewModel>()
 
                 // Refresh chapters when returning from quiz
                 val needsChapterRefresh = entry.savedStateHandle
@@ -340,7 +355,7 @@ fun MindquestNavGraph(
                 ),
             ) { entry ->
                 val moduleColor = entry.arguments?.getString(NavRoutes.ARG_MODULE_COLOR).orEmpty()
-                val viewModel = koinViewModel<QuizViewModel>()
+                val viewModel = koinInject<QuizViewModel>()
 
                 // Auto-start quiz from session holder
                 LaunchedEffect(Unit) {
@@ -429,7 +444,7 @@ fun MindquestNavGraph(
 
             // ── Tournament flow ─────────────────────────────────────────
             composable(NavRoutes.TOURNAMENT_LOBBY) {
-                val viewModel = koinViewModel<TournamentViewModel>()
+                val viewModel = koinInject<TournamentViewModel>()
                 TournamentLobbyScreen(
                     viewModel = viewModel,
                     onStartQuiz = { tournament, tournamentEntry, quiz ->
@@ -462,7 +477,7 @@ fun MindquestNavGraph(
 
             // Keep legacy tournament play route for backward compatibility
             composable(NavRoutes.TOURNAMENT_PLAY) {
-                val viewModel = koinViewModel<TournamentViewModel>()
+                val viewModel = koinInject<TournamentViewModel>()
                 TournamentPlayScreen(
                     viewModel = viewModel,
                     onPause = { navController.navigate(NavRoutes.TOURNAMENT_PAUSE) },
@@ -475,7 +490,7 @@ fun MindquestNavGraph(
             }
 
             composable(NavRoutes.TOURNAMENT_PAUSE) {
-                val viewModel = koinViewModel<TournamentViewModel>()
+                val viewModel = koinInject<TournamentViewModel>()
                 TournamentPauseScreen(
                     viewModel = viewModel,
                     onResume = { navController.popBackStack() },
@@ -488,7 +503,7 @@ fun MindquestNavGraph(
             }
 
             composable(NavRoutes.TOURNAMENT_RESULT) {
-                val viewModel = koinViewModel<TournamentViewModel>()
+                val viewModel = koinInject<TournamentViewModel>()
                 TournamentResultScreen(
                     viewModel = viewModel,
                     userId = userId,
