@@ -332,10 +332,17 @@ class AuthRepositoryImpl(
                 if (userId != null) {
                     val newAuthProvider = determineAuthProvider()
                     AppLogger.d("MQ_DB", "linkAccountWithGoogle: updating auth_provider to=$newAuthProvider for userId=$userId")
-                    apiService.updateProfile(userId, buildJsonObject {
-                        put("auth_provider", JsonPrimitive(newAuthProvider))
-                    })
-                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: auth_provider updated")
+                    try {
+                        apiService.updateProfile(userId, buildJsonObject {
+                            put("auth_provider", JsonPrimitive(newAuthProvider))
+                        })
+                        AppLogger.d("MQ_DB", "linkAccountWithGoogle: auth_provider updated to=$newAuthProvider")
+                    } catch (updateError: Exception) {
+                        AppLogger.e("MQ_DB", "linkAccountWithGoogle: updateProfile FAILED: ${updateError.message}", updateError)
+                        throw updateError
+                    }
+                } else {
+                    AppLogger.e("MQ_DB", "linkAccountWithGoogle: userId is NULL - skipping db update")
                 }
 
                 AppLogger.d("MQ_DB", "linkAccountWithGoogle: SUCCESS")
