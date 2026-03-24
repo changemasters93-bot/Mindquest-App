@@ -324,22 +324,31 @@ class AuthRepositoryImpl(
             } else {
                 AppLogger.d("MQ_DB", "linkAccountWithGoogle: calling supabaseClient.auth.linkIdentity(Google)...")
                 supabaseClient.auth.linkIdentity(Google)
-                AppLogger.d("MQ_DB", "linkAccountWithGoogle: identity linked, updating database...")
+                AppLogger.d("MQ_DB", "linkAccountWithGoogle: identity linked, refreshing session...")
 
-                // Get current user and update auth_provider in database
-                val session = supabaseClient.auth.currentSessionOrNull()
-                val userId = session?.user?.id
+                // Refresh session to ensure email and identities are synced
+                val refreshedSession = supabaseClient.auth.currentSessionOrNull()
+                val userId = refreshedSession?.user?.id
                 if (userId != null) {
                     val newAuthProvider = determineAuthProvider()
-                    // CRITICAL FIX: Extract email from session and pass it to updateProfile
-                    val email = getCurrentUserEmail()
-                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: updating auth_provider to=$newAuthProvider and email for userId=$userId")
+
+                    // FIX: Extract email from session, with fallback to Google identity
+                    var email = getCurrentUserEmail()
+                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: primary email extraction result (length=${email?.length ?: 0})")
+
+                    // If email is NULL, try to extract from Google identity metadata
+                    if (email.isNullOrBlank()) {
+                        email = refreshedSession.user.identities?.firstOrNull { it.provider == "google" }?.identity?.get("email")?.toString()
+                        AppLogger.d("MQ_DB", "linkAccountWithGoogle: fallback email from Google identity (length=${email?.length ?: 0})")
+                    }
+
+                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: updating auth_provider to=$newAuthProvider for userId=$userId, email=${if (email.isNullOrBlank()) "NULL" else "SET"}")
                     try {
                         apiService.updateProfile(userId, buildJsonObject {
                             put("auth_provider", JsonPrimitive(newAuthProvider))
                             email?.takeIf { it.isNotBlank() }?.let { put("email", JsonPrimitive(it)) }
                         })
-                        AppLogger.d("MQ_DB", "linkAccountWithGoogle: auth_provider updated to=$newAuthProvider and email saved")
+                        AppLogger.d("MQ_DB", "linkAccountWithGoogle: updateProfile completed successfully")
                     } catch (updateError: Exception) {
                         AppLogger.e("MQ_DB", "linkAccountWithGoogle: updateProfile FAILED: ${updateError.message}", updateError)
                         throw updateError
