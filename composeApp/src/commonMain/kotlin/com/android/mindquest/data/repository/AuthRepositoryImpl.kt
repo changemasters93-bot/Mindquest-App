@@ -327,22 +327,17 @@ class AuthRepositoryImpl(
                 AppLogger.d("MQ_DB", "linkAccountWithGoogle: identity linked, refreshing session...")
 
                 // Refresh session to ensure email and identities are synced
-                val refreshedSession = supabaseClient.auth.currentSessionOrNull()
-                val userId = refreshedSession?.user?.id
+                val session = supabaseClient.auth.currentSessionOrNull()
+                val userId = session?.user?.id
                 if (userId != null) {
                     val newAuthProvider = determineAuthProvider()
 
-                    // FIX: Extract email from session, with fallback to Google identity
-                    var email = getCurrentUserEmail()
-                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: primary email extraction result (length=${email?.length ?: 0})")
+                    // CRITICAL FIX: Extract email from session with unmasked logging
+                    val email = getCurrentUserEmail()
+                    val emailStatus = if (email.isNullOrBlank()) "NULL/BLANK" else "LENGTH=${email.length}"
+                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: email extraction result: $emailStatus")
 
-                    // If email is NULL, try to extract from Google identity metadata
-                    if (email.isNullOrBlank()) {
-                        email = refreshedSession.user.identities?.firstOrNull { it.provider == "google" }?.identity?.get("email")?.toString()
-                        AppLogger.d("MQ_DB", "linkAccountWithGoogle: fallback email from Google identity (length=${email?.length ?: 0})")
-                    }
-
-                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: updating auth_provider to=$newAuthProvider for userId=$userId, email=${if (email.isNullOrBlank()) "NULL" else "SET"}")
+                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: updating auth_provider=$newAuthProvider, email=$emailStatus for userId=$userId")
                     try {
                         apiService.updateProfile(userId, buildJsonObject {
                             put("auth_provider", JsonPrimitive(newAuthProvider))
