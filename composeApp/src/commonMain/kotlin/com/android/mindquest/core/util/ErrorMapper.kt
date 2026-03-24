@@ -57,8 +57,17 @@ object ErrorMapper {
                 "This quiz is on cooldown. Try again later."
 
             // ── Database constraints ──────────────────────────────────
+            // Email uniqueness violation
+            msg.containsAny("users_email_unique", "duplicate key value violates unique constraint \"users_email_unique\"") ->
+                "This email is already used by another account. Please sign in instead."
+
+            // Phone uniqueness violation
+            msg.containsAny("users_phone_unique", "duplicate key value violates unique constraint \"users_phone_unique\"") ->
+                "This phone number is already linked to another account."
+
+            // Generic duplicate/unique constraint
             msg.containsAny("duplicate key", "unique constraint", "already exists") ->
-                "This action has already been completed."
+                "This action has already been completed. Please try again."
 
             msg.containsAny("violates", "constraint", "foreign key") ->
                 "Something went wrong. Please try again."
