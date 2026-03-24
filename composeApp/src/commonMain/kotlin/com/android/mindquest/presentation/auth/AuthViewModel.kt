@@ -407,6 +407,11 @@ class AuthViewModel(
         if (profile != null) {
             // New user signup — create full user row with onboarding data
             val displayName = profile.displayName.ifBlank { user.displayName }
+            // Get fresh email from session (in case user.email is empty)
+            val sessionEmail = authRepository.getCurrentUserEmail()
+            val emailToSave = user.email?.takeIf { it.isNotBlank() } ?: sessionEmail
+            AppLogger.d("MQ_AUTH", "Google: upsertUserRow — user.email='${user.email}', sessionEmail='${sessionEmail?.takeIf { it.isNotBlank() } ?: "NULL"}', emailToSave='${emailToSave?.takeIf { it.isNotBlank() } ?: "NULL"}'")
+
             val upsertResult = authRepository.upsertUserRow(
                 userId = user.id,
                 displayName = displayName,
@@ -416,7 +421,7 @@ class AuthViewModel(
                 countryId = profile.countryId,
                 cityId = profile.cityId,
                 schoolName = profile.schoolName,
-                email = user.email,
+                email = emailToSave,
             )
             AppLogger.d("MQ_AUTH", "Google: upsertUserRow (new user) result = $upsertResult")
         } else {
