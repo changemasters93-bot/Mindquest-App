@@ -420,11 +420,27 @@ class AuthViewModel(
             )
             AppLogger.d("MQ_AUTH", "Google: upsertUserRow (new user) result = $upsertResult")
         } else {
-            // Returning user login — ensure email is saved (backfill for old users)
-            if (!user.email.isNullOrBlank() && user.id.isNotBlank()) {
+            // Returning user login — save all Google data (email, auth_provider, etc.)
+            if (user.id.isNotBlank()) {
                 try {
-                    authRepository.updateProfile(user.id, mapOf("auth_provider" to "google"))
-                    AppLogger.d("MQ_AUTH", "Google: updated auth_provider for returning user")
+                    val updates = mutableMapOf<String, Any>(
+                        "auth_provider" to "google"
+                    )
+
+                    // Save email if available
+                    if (!user.email.isNullOrBlank()) {
+                        updates["email"] = user.email!!
+                        AppLogger.d("MQ_AUTH", "Google: saving email for returning user: ${user.email}")
+                    }
+
+                    // Save display name if available and different
+                    if (!user.displayName.isNullOrBlank()) {
+                        updates["display_name"] = user.displayName
+                        AppLogger.d("MQ_AUTH", "Google: saving display_name for returning user: ${user.displayName}")
+                    }
+
+                    authRepository.updateProfile(user.id, updates)
+                    AppLogger.d("MQ_AUTH", "Google: updated returning user with email='${user.email}', auth_provider='google'")
                 } catch (e: Exception) {
                     AppLogger.e("MQ_AUTH", "Google: failed to update returning user", e)
                 }
