@@ -55,33 +55,30 @@ BEGIN
 END $$;
 
 -- ═══════════════════════════════════════════════════════════════════
--- 2. ADD UNIQUE CONSTRAINTS
+-- 2. ADD UNIQUE CONSTRAINTS (using partial indexes)
 -- ═══════════════════════════════════════════════════════════════════
 
--- Drop existing constraints if they exist (for re-running this script)
-ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_email_unique;
-ALTER TABLE public.users DROP CONSTRAINT IF EXISTS users_phone_unique;
+-- Drop existing indexes if they exist (for re-running this script)
+DROP INDEX IF EXISTS users_email_unique;
+DROP INDEX IF EXISTS users_phone_unique;
 
--- Add UNIQUE constraint on email
+-- Add UNIQUE constraint on email using PARTIAL INDEX
 -- Note: PostgreSQL treats NULL as different, so multiple NULL emails are allowed
-ALTER TABLE public.users
-ADD CONSTRAINT users_email_unique UNIQUE (email)
+-- Only non-NULL emails must be unique
+CREATE UNIQUE INDEX users_email_unique ON public.users(email)
 WHERE email IS NOT NULL;
 
--- Add UNIQUE constraint on phone
-ALTER TABLE public.users
-ADD CONSTRAINT users_phone_unique UNIQUE (phone)
+-- Add UNIQUE constraint on phone using PARTIAL INDEX
+-- Only non-NULL phones must be unique
+CREATE UNIQUE INDEX users_phone_unique ON public.users(phone)
 WHERE phone IS NOT NULL;
 
 -- ═══════════════════════════════════════════════════════════════════
--- 3. CREATE INDEXES FOR PERFORMANCE
+-- 3. CREATE ADDITIONAL INDEXES FOR PERFORMANCE
 -- ═══════════════════════════════════════════════════════════════════
 
--- Index for email lookups (useful for findUserByEmail queries)
-CREATE INDEX IF NOT EXISTS idx_users_email_non_null ON public.users(email) WHERE email IS NOT NULL;
-
--- Index for phone lookups (useful for findUserByPhone queries)
-CREATE INDEX IF NOT EXISTS idx_users_phone_non_null ON public.users(phone) WHERE phone IS NOT NULL;
+-- Note: users_email_unique and users_phone_unique are already created in section 2
+-- These additional indexes help with other queries
 
 -- Index for auth_provider lookups
 CREATE INDEX IF NOT EXISTS idx_users_auth_provider ON public.users(auth_provider);
@@ -90,21 +87,20 @@ CREATE INDEX IF NOT EXISTS idx_users_auth_provider ON public.users(auth_provider
 CREATE INDEX IF NOT EXISTS idx_users_email_phone ON public.users(email, phone) WHERE email IS NOT NULL OR phone IS NOT NULL;
 
 -- ═══════════════════════════════════════════════════════════════════
--- 4. VERIFY CONSTRAINTS
+-- 4. VERIFY INDEXES (UNIQUE CONSTRAINTS)
 -- ═══════════════════════════════════════════════════════════════════
 
--- Show all constraints on users table
-SELECT constraint_name, constraint_type
-FROM information_schema.table_constraints
-WHERE table_name = 'users'
-ORDER BY constraint_name;
-
--- Show all indexes on users table
+-- Show all indexes on users table (includes UNIQUE indexes for constraints)
 SELECT indexname, indexdef
 FROM pg_indexes
 WHERE tablename = 'users'
-AND indexname LIKE 'idx_%'
 ORDER BY indexname;
+
+-- Verify the UNIQUE indexes exist for email and phone
+SELECT indexname, indexdef
+FROM pg_indexes
+WHERE tablename = 'users'
+AND (indexname = 'users_email_unique' OR indexname = 'users_phone_unique');
 
 -- ═══════════════════════════════════════════════════════════════════
 -- 5. TEST THE CONSTRAINTS
@@ -128,14 +124,22 @@ INSERT INTO public.users (
 -- ═══════════════════════════════════════════════════════════════════
 -- SUMMARY OF CHANGES
 -- ═══════════════════════════════════════════════════════════════════
--- ✅ Email field: UNIQUE constraint added (allows NULL)
--- ✅ Phone field: UNIQUE constraint added (allows NULL)
+-- ✅ Email field: UNIQUE constraint added via partial index (allows NULL)
+-- ✅ Phone field: UNIQUE constraint added via partial index (allows NULL)
 -- ✅ Duplicate emails/phones: Cleaned up (kept latest, nullified duplicates)
--- ✅ Indexes: Added for query performance on email, phone, auth_provider
+-- ✅ Partial Indexes: Only non-NULL emails/phones must be unique
+-- ✅ Additional Indexes: Added for query performance on auth_provider
 --
 -- BEHAVIOR:
--- - Same email can be used only by ONE user
--- - Multiple NULL emails are allowed (for users without email)
+-- - Same non-NULL email can be used only by ONE user
+-- - Multiple NULL emails are allowed (PostgreSQL treats each NULL as distinct)
+-- - Same non-NULL phone can be used only by ONE user
+-- - Multiple NULL phones are allowed
 -- - App-level duplicate detection still works as backup
--- - Database now enforces email uniqueness (no app bypass possible)
+-- - Database now enforces email/phone uniqueness (no app bypass possible)
+--
+-- TECHNICAL DETAILS:
+-- - Uses PostgreSQL PARTIAL UNIQUE INDEX (not traditional UNIQUE constraint)
+-- - Partial indexes only enforce uniqueness WHERE email IS NOT NULL
+-- - This allows multiple NULL values (which would fail with traditional constraint)
 -- ═══════════════════════════════════════════════════════════════════
