@@ -62,10 +62,31 @@ class AuthRepositoryImpl(
                 val googleName = metadata?.get("full_name")?.toString()?.trim('"')
                     ?: metadata?.get("name")?.toString()?.trim('"')
                     ?: ""
-                val googleEmail = session.user?.email ?: ""
+
+                // CRITICAL FIX: Add retry logic for email extraction
+                // The session may not be immediately updated with email after OAuth
+                // Retry up to 3 times with 500ms delay between attempts
+                var googleEmail = session.user?.email ?: ""
+                if (googleEmail.isBlank()) {
+                    AppLogger.d("MQ_AUTH", "AuthRepo: Email blank on first attempt, retrying (up to 3 attempts)...")
+                    val maxRetries = 3
+                    val delayMs = 500L
+                    for (attempt in 1..maxRetries) {
+                        delay(delayMs)
+                        val retrySession = supabaseClient.auth.currentSessionOrNull()
+                        googleEmail = retrySession?.user?.email ?: ""
+                        if (googleEmail.isNotBlank()) {
+                            AppLogger.d("MQ_AUTH", "AuthRepo: Email extracted on retry attempt $attempt")
+                            break
+                        } else {
+                            AppLogger.d("MQ_AUTH", "AuthRepo: Email still blank on retry attempt $attempt")
+                        }
+                    }
+                }
+
                 val googleAvatarUrl = metadata?.get("avatar_url")?.toString()?.trim('"')
                     ?: metadata?.get("picture")?.toString()?.trim('"')
-                AppLogger.d("MQ_AUTH", "AuthRepo: Google metadata — name='$googleName', email='$googleEmail', avatarUrl=${googleAvatarUrl != null}, googleSub=$googleSub")
+                AppLogger.d("MQ_AUTH", "AuthRepo: Google metadata — name='$googleName', email='${if (googleEmail.isNotBlank()) googleEmail.length.toString() + " chars" else "BLANK"}', avatarUrl=${googleAvatarUrl != null}, googleSub=$googleSub")
 
                 Resource.Success(
                     if (profile != null) {
@@ -323,64 +344,24 @@ class AuthRepositoryImpl(
                 AppLogger.d("MQ_DB", "linkAccountWithGoogle: MOCK MODE")
                 Resource.Success(Unit)
             } else {
-                AppLogger.d("MQ_DB", "linkAccountWithGoogle: calling supabaseClient.auth.linkIdentity(Google)...")
-                supabaseClient.auth.linkIdentity(Google)
-                AppLogger.d("MQ_DB", "linkAccountWithGoogle: identity linked, waiting for session sync...")
-
-                // CRITICAL FIX: Add delay and retry logic for email extraction
-                // The session may not be immediately updated after linkIdentity() call
-                // Retry up to 3 times with 500ms delay between attempts
-                var email: String? = null
-                var emailExtracted = false
-                val maxRetries = 3
-                val delayMs = 500L
-
-                for (attempt in 1..maxRetries) {
-                    if (attempt > 1) {
-                        delay(delayMs)
-                    }
-
-                    email = getCurrentUserEmail()
-                    if (!email.isNullOrBlank()) {
-                        emailExtracted = true
-                        AppLogger.d("MQ_DB", "linkAccountWithGoogle: email extracted on attempt $attempt")
-                        break
-                    } else {
-                        AppLogger.d("MQ_DB", "linkAccountWithGoogle: email still NULL/BLANK on attempt $attempt, retrying...")
-                    }
-                }
-
-                // Continue with update even if email extraction failed
-                val session = supabaseClient.auth.currentSessionOrNull()
-                val userId = session?.user?.id
-                if (userId != null) {
-                    val newAuthProvider = determineAuthProvider()
-                    val emailStatus = if (email.isNullOrBlank()) "NULL/BLANK (after $maxRetries attempts)" else "LENGTH=${email.length}"
-                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: final email extraction result: $emailStatus")
-
-                    AppLogger.d("MQ_DB", "linkAccountWithGoogle: updating auth_provider=$newAuthProvider, email=$emailStatus for userId=$userId")
-                    try {
-                        apiService.updateProfile(userId, buildJsonObject {
-                            put("auth_provider", JsonPrimitive(newAuthProvider))
-                            email?.takeIf { it.isNotBlank() }?.let { put("email", JsonPrimitive(it)) }
-                        })
-                        AppLogger.d("MQ_DB", "linkAccountWithGoogle: updateProfile completed successfully")
-                    } catch (updateError: Exception) {
-                        AppLogger.e("MQ_DB", "linkAccountWithGoogle: updateProfile FAILED: ${updateError.message}", updateError)
-                        throw updateError
-                    }
-                } else {
-                    AppLogger.e("MQ_DB", "linkAccountWithGoogle: userId is NULL - skipping db update")
-                }
-
-                AppLogger.d("MQ_DB", "linkAccountWithGoogle: SUCCESS")
+                // WORKAROUND: Supabase's linkIdentity(Google) causes a 500 on Google's OAuth page.
+                // We use signInWith(Google) to create a Google auth entry, then the ViewModel
+                // calls merge_anonymous_to_google RPC to transfer all data to the Google user.
+                AppLogger.d("MQ_DB", "linkAccountWithGoogle: using signInWith(Google) workaround")
+                supabaseClient.auth.signInWith(Google)
+                AppLogger.d("MQ_DB", "linkAccountWithGoogle: signInWith returned (browser opened)")
                 Resource.Success(Unit)
             }
         } catch (e: Exception) {
             AppLogger.e("MQ_DB", "linkAccountWithGoogle: FAILED", e)
-            AppLogger.e("AuthRepo", "Link Google account failed", e)
             Resource.Error(message = ErrorMapper.toUserMessage(e), throwable = e)
         }
+    }
+
+    override suspend fun mergeAnonymousToGoogle(anonId: String, googleId: String, email: String) {
+        AppLogger.d("MQ_DB", "mergeAnonymousToGoogle: anon=$anonId → google=$googleId")
+        apiService.mergeAnonymousToGoogle(anonId, googleId, email)
+        AppLogger.d("MQ_DB", "mergeAnonymousToGoogle: SUCCESS")
     }
 
     override suspend fun linkAccountWithPhone(phoneNumber: String): Resource<Unit> {

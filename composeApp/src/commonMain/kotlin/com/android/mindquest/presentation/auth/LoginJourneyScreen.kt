@@ -204,6 +204,8 @@ fun LoginJourneyScreen(
     val backendCities by viewModel.cities.collectAsState()
     val backendGrades by viewModel.grades.collectAsState()
     val duplicateEmailError by viewModel.duplicateEmailError.collectAsState()
+    val needsOnboarding by viewModel.needsOnboarding.collectAsState()
+    val accountRecoveryMessage by viewModel.accountRecoveryMessage.collectAsState()
 
     // After splash finishes, checkSession() updates sessionCheck.
     // CHECKING → do nothing (splash still playing or check in progress).
@@ -214,6 +216,14 @@ fun LoginJourneyScreen(
             SessionCheck.LOGGED_IN -> onComplete()
             SessionCheck.NOT_LOGGED_IN -> currentStep = JourneyStep.USER_TYPE
             SessionCheck.CHECKING -> { /* still checking, wait */ }
+        }
+    }
+
+    // When a new user comes through "I already have an account" → Google
+    // but has no existing profile, redirect to onboarding (STEP1)
+    LaunchedEffect(needsOnboarding) {
+        if (needsOnboarding) {
+            currentStep = JourneyStep.STEP1
         }
     }
 
@@ -286,7 +296,31 @@ fun LoginJourneyScreen(
             JourneyStep.STEP2 -> ProfileStep2(
                 data = profileData,
                 onUpdate = { profileData = it },
-                onNext = { currentStep = JourneyStep.STEP3 },
+                onNext = {
+                    if (needsOnboarding) {
+                        // Google already selected via EXISTING_LOGIN → skip STEP3
+                        // Build OnboardingProfile from collected data and complete setup
+                        val formattedName = profileData.name.trim()
+                            .split(" ")
+                            .joinToString(" ") { word ->
+                                word.replaceFirstChar { it.uppercaseChar() }
+                            }
+                        val profile = OnboardingProfile(
+                            displayName = formattedName.ifBlank {
+                                viewModel.getPendingGoogleUser()?.displayName ?: "Player"
+                            },
+                            avatarId = profileData.avatarId,
+                            gradeLabel = profileData.grade,
+                            countryName = profileData.country,
+                            cityName = profileData.city,
+                            schoolName = profileData.school.takeIf { it.isNotBlank() },
+                        )
+                        viewModel.completeGoogleOnboarding(profile)
+                        currentStep = JourneyStep.DONE
+                    } else {
+                        currentStep = JourneyStep.STEP3
+                    }
+                },
                 onBack = { currentStep = JourneyStep.STEP1 },
                 gradeLabels = backendGrades.map { it.label }.ifEmpty { GRADES_FALLBACK },
             )

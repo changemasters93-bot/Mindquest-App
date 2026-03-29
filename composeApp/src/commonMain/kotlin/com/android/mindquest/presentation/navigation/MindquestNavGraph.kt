@@ -1,14 +1,22 @@
 package com.android.mindquest.presentation.navigation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -29,7 +37,10 @@ import com.android.mindquest.presentation.auth.AuthViewModel
 import com.android.mindquest.presentation.auth.LoginJourneyScreen
 import com.android.mindquest.presentation.chapters.ChaptersScreen
 import com.android.mindquest.presentation.chapters.ChaptersViewModel
+import com.android.mindquest.core.util.SnackbarManager
+import com.android.mindquest.core.util.SnackbarType
 import com.android.mindquest.presentation.components.MindquestBottomNav
+import com.android.mindquest.presentation.components.MindquestSnackbar
 import com.android.mindquest.presentation.home.HomeScreen
 import com.android.mindquest.presentation.home.HomeViewModel
 import com.android.mindquest.presentation.leaderboard.LeaderboardScreen
@@ -56,12 +67,25 @@ fun MindquestNavGraph(
 ) {
     val sessionProvider = koinInject<SessionProvider>()
     val userId = sessionProvider.userId
+    val snackbarManager = koinInject<SnackbarManager>()
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    var currentSnackbarType by remember { mutableStateOf(SnackbarType.INFO) }
+
+    // Collect global snackbar messages
+    LaunchedEffect(Unit) {
+        snackbarManager.messages.collect { message ->
+            currentSnackbarType = message.type
+            snackbarHostState.showSnackbar(message.text)
+        }
+    }
 
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
 
     val showBottomNav = currentRoute in NavRoutes.BOTTOM_NAV_ROUTES
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Scaffold(
         bottomBar = {
             if (showBottomNav) {
@@ -251,19 +275,22 @@ fun MindquestNavGraph(
                 val profileViewModel = koinInject<ProfileViewModel>()
                 val authViewModel = koinInject<AuthViewModel>()
 
-                // Observe auth state changes and reload profile when linking completes
+                // Observe auth state changes and reload profile when linking completes.
+                // IMPORTANT: Use sessionProvider.userId (live getter) instead of captured
+                // `userId` — after merge, the session switches to the Google UUID but the
+                // captured variable still holds the old anonymous UUID.
                 LaunchedEffect(Unit) {
                     authViewModel.authState.collect { authState ->
                         if (authState is UiState.Success) {
-                            // Account linking completed, reload profile data
-                            profileViewModel.loadProfile(userId)
+                            val freshUserId = sessionProvider.userId
+                            profileViewModel.loadProfile(freshUserId)
                         }
                     }
                 }
 
                 ProfileScreen(
                     viewModel = profileViewModel,
-                    userId = userId,
+                    userId = sessionProvider.userId,
                     onSignOut = {
                         profileViewModel.signOut()
                         navController.navigate(NavRoutes.LOGIN_JOURNEY) {
@@ -519,4 +546,16 @@ fun MindquestNavGraph(
             }
         }
     }
+
+    // Global snackbar — overlays above everything (including bottom nav)
+    SnackbarHost(
+        hostState = snackbarHostState,
+        modifier = Modifier
+            .align(Alignment.BottomCenter)
+            .padding(bottom = if (showBottomNav) 80.dp else 16.dp),
+        snackbar = { data ->
+            MindquestSnackbar(snackbarData = data, snackbarType = currentSnackbarType)
+        },
+    )
+    } // end root Box
 }

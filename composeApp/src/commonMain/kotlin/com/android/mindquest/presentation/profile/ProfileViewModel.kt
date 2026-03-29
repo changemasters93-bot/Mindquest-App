@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.android.mindquest.core.prefs.SessionPrefs
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
+import com.android.mindquest.core.util.SnackbarManager
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.ProfileData
 import com.android.mindquest.domain.repository.AuthRepository
@@ -21,6 +22,7 @@ class ProfileViewModel(
     private val updateProfile: UpdateProfileUseCase,
     private val authRepository: AuthRepository,
     private val sessionPrefs: SessionPrefs,
+    private val snackbarManager: SnackbarManager,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -38,7 +40,10 @@ class ProfileViewModel(
             _profileState.value = UiState.Loading
             when (val result = getProfile(userId)) {
                 is Resource.Success -> _profileState.value = UiState.Success(result.data)
-                is Resource.Error -> _profileState.value = UiState.Error(result.message)
+                is Resource.Error -> {
+                    _profileState.value = UiState.Error(result.message)
+                    snackbarManager.showError("Failed to load profile. Please try again.")
+                }
                 is Resource.Loading -> { /* no-op */ }
             }
         }
@@ -50,9 +55,13 @@ class ProfileViewModel(
             when (val result = updateProfile(userId, mapOf("display_name" to newName))) {
                 is Resource.Success -> {
                     _updateState.value = UiState.Success(Unit)
+                    snackbarManager.showSuccess("Display name updated!")
                     loadProfile(userId)
                 }
-                is Resource.Error -> _updateState.value = UiState.Error(result.message)
+                is Resource.Error -> {
+                    _updateState.value = UiState.Error(result.message)
+                    snackbarManager.showError("Failed to update name. Please try again.")
+                }
                 is Resource.Loading -> { /* no-op */ }
             }
         }
@@ -64,9 +73,13 @@ class ProfileViewModel(
             when (val result = updateProfile(userId, mapOf("avatar_id" to avatarId))) {
                 is Resource.Success -> {
                     _updateState.value = UiState.Success(Unit)
+                    snackbarManager.showSuccess("Avatar updated!")
                     loadProfile(userId)
                 }
-                is Resource.Error -> _updateState.value = UiState.Error(result.message)
+                is Resource.Error -> {
+                    _updateState.value = UiState.Error(result.message)
+                    snackbarManager.showError("Failed to update avatar. Please try again.")
+                }
                 is Resource.Loading -> { /* no-op */ }
             }
         }

@@ -61,6 +61,9 @@ interface AuthRepository {
     /** Find existing user by email or phone. Returns null if not found. */
     suspend fun findExistingUser(email: String? = null, phone: String? = null): ExistingUserInfo?
 
+    /** Merge anonymous user into Google user (clone profile, transfer child data, delete anon). */
+    suspend fun mergeAnonymousToGoogle(anonId: String, googleId: String, email: String)
+
     /** Merge all data from one user to another. Deletes the source user. */
     suspend fun mergeUsers(fromId: String, toId: String): Resource<Unit>
 

@@ -6,6 +6,7 @@ import com.android.mindquest.core.constants.AppConstants
 import com.android.mindquest.core.prefs.SessionPrefs
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
+import com.android.mindquest.core.util.SnackbarManager
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.City
 import com.android.mindquest.domain.model.Country
@@ -86,6 +87,7 @@ class AuthViewModel(
     private val authRepository: AuthRepository,
     private val referenceDataRepository: ReferenceDataRepository,
     private val sessionPrefs: SessionPrefs,
+    private val snackbarManager: SnackbarManager,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -173,6 +175,43 @@ class AuthViewModel(
     /** Flag to prevent concurrent Google sign-in attempts (debounce). */
     private var isGoogleSignInInProgress = false
 
+    /**
+     * Tracks whether a Google sign-in is in progress (from ANY path: onboarding or existing login).
+     * When pendingGoogleProfile is null (e.g., EXISTING_LOGIN), the session observer still needs
+     * to know that a Google sign-in was initiated so it can handle the OAuth completion.
+     */
+    private var pendingGoogleSignIn = false
+
+    /** Flag to track if Google provider was selected in an earlier step (not on Step 3). */
+    private var googleWasPreSelected = false
+
+    /** Account recovery message (shown when returning user is detected). */
+    private val _accountRecoveryMessage = MutableStateFlow<String?>(null)
+    val accountRecoveryMessage: StateFlow<String?> = _accountRecoveryMessage.asStateFlow()
+
+    /** @deprecated Use SnackbarManager instead. Kept for backward compatibility. */
+    val linkingSnackbarMessage: StateFlow<String?> = MutableStateFlow(null)
+
+    /** Flag to indicate user needs onboarding (new user who chose "I already have an account" but has no profile). */
+    private val _needsOnboarding = MutableStateFlow(false)
+
+    /**
+     * Stashed Google user for the EXISTING_LOGIN → onboarding path.
+     * The user has an auth.users entry but no public.users row yet.
+     * After onboarding (STEP1 → STEP2), completeGoogleOnboarding() uses this to create the row.
+     */
+    private var pendingGoogleUser: User? = null
+
+    /**
+     * Stashed anonymous user ID for the "Link Google" workaround.
+     * Since we use signInWith(Google) instead of linkIdentity(Google),
+     * the session is REPLACED (not linked). We need the old anon ID to move the identity back.
+     */
+    private var pendingMergeAnonId: String? = null
+
+
+    val needsOnboarding: StateFlow<Boolean> = _needsOnboarding.asStateFlow()
+
     /** Whether the user has already seen the onboarding slides on this device. */
     val hasSeenOnboarding: Boolean get() = sessionPrefs.hasSeenOnboarding
 
@@ -189,6 +228,22 @@ class AuthViewModel(
         }
         observeSessionForGoogleCallback()
         AppLogger.d("MQ_AUTH", "AuthViewModel init{} END — coroutines launched")
+    }
+
+    /**
+     * Resets stale linking / sign-in flags so the session observer
+     * doesn't confuse a brand-new auth flow with a previous one.
+     * Called at the start of every auth entry point.
+     */
+    private fun resetStaleAuthState() {
+        if (pendingLinkProvider != null) {
+            AppLogger.d("MQ_AUTH", "resetStaleAuthState: clearing stale pendingLinkProvider=$pendingLinkProvider")
+        }
+        pendingLinkProvider = null
+        pendingMergeAnonId = null
+        pendingGoogleProfile = null
+        pendingGoogleSignIn = false
+        isGoogleSignInInProgress = false
     }
 
     // ── Session check ────────────────────────────────────────────────────
@@ -318,6 +373,55 @@ class AuthViewModel(
     fun resolveCountryId(name: String): String = _countries.value.find { it.name == name }?.id ?: ""
     fun resolveCityId(name: String): String = _cities.value.find { it.name == name }?.id ?: ""
 
+    // ── Google pre-selection tracking (Phase 2.2) ──────────────────────────
+    // Used to indicate that Google was selected before Step 3, so we can skip Step 3
+    // if the user started the flow with Google on a dedicated screen
+
+    fun markGoogleAsPreSelected() {
+        googleWasPreSelected = true
+        AppLogger.d("MQ_AUTH", "markGoogleAsPreSelected(): Google marked as pre-selected")
+    }
+
+    fun isGooglePreSelected(): Boolean = googleWasPreSelected
+
+    fun resetGooglePreSelection() {
+        googleWasPreSelected = false
+        AppLogger.d("MQ_AUTH", "resetGooglePreSelection(): Google pre-selection cleared")
+    }
+
+    /** Get the stashed Google user (for EXISTING_LOGIN → onboarding path). */
+    fun getPendingGoogleUser(): User? = pendingGoogleUser
+
+    /**
+     * Called after onboarding STEP2 when Google was pre-selected via EXISTING_LOGIN.
+     * Creates the public.users row with collected onboarding data + stashed Google user.
+     */
+    fun completeGoogleOnboarding(profile: OnboardingProfile) {
+        val user = pendingGoogleUser
+        if (user == null) {
+            AppLogger.e("MQ_AUTH", "completeGoogleOnboarding: pendingGoogleUser is null!")
+            return
+        }
+        AppLogger.d("MQ_AUTH", "completeGoogleOnboarding: creating user row with profile for userId=${user.id}")
+        viewModelScope.launch(exceptionHandler) {
+            _authState.update { UiState.Loading }
+            try {
+                val resolved = resolveProfileIds(profile)
+                if (resolved.gradeId.isBlank()) {
+                    _authState.update { UiState.Error("Grades not loaded yet. Please try again.") }
+                    return@launch
+                }
+                handleGoogleSignInSuccess(user, resolved)
+                pendingGoogleUser = null
+                _needsOnboarding.update { false }
+                AppLogger.d("MQ_AUTH", "completeGoogleOnboarding: SUCCESS — user row created, navigating to home")
+            } catch (e: Exception) {
+                AppLogger.e("MQ_AUTH", "completeGoogleOnboarding: FAILED", e)
+                _authState.update { UiState.Error("Failed to complete setup. Please try again.") }
+            }
+        }
+    }
+
     // ── Auth: Google ─────────────────────────────────────────────────────
 
     fun signInWithGoogle(profile: OnboardingProfile? = null) {
@@ -326,8 +430,11 @@ class AuthViewModel(
             AppLogger.d("MQ_AUTH", "signInWithGoogle() BLOCKED — already in progress")
             return
         }
+        // Clear stale linking state from any previous failed flow
+        resetStaleAuthState()
         isGoogleSignInInProgress = true
-        AppLogger.d("MQ_AUTH", "signInWithGoogle() called, profile=$profile")
+        pendingGoogleSignIn = true
+        AppLogger.d("MQ_AUTH", "signInWithGoogle() called, profile=${profile != null}, pendingGoogleSignIn=true")
         viewModelScope.launch(exceptionHandler) {
             _authState.update { UiState.Empty }
 
@@ -335,6 +442,8 @@ class AuthViewModel(
                 val resolved = resolveProfileIds(profile)
                 if (resolved.gradeId.isBlank()) {
                     _authState.update { UiState.Error("Grades not loaded yet. Please try again.") }
+                    pendingGoogleSignIn = false
+                    isGoogleSignInInProgress = false
                     return@launch
                 }
                 resolved
@@ -343,12 +452,15 @@ class AuthViewModel(
             _authState.update { UiState.Loading }
             pendingGoogleProfile = resolvedProfile
 
-            // 60s timeout safety net
+            // 60s timeout safety net — covers BOTH onboarding and existing login paths
             viewModelScope.launch {
                 delay(60_000)
-                if (_authState.value is UiState.Loading && pendingGoogleProfile != null) {
+                if (_authState.value is UiState.Loading && pendingGoogleSignIn) {
                     pendingGoogleProfile = null
+                    pendingGoogleSignIn = false
+                    isGoogleSignInInProgress = false
                     _authState.update { UiState.Error("Google sign-in timed out. Please try again.") }
+                    AppLogger.d("MQ_AUTH", "Google: 60s timeout — all flags reset")
                 }
             }
 
@@ -356,6 +468,11 @@ class AuthViewModel(
                 val result = authRepository.signInWithGoogle()
                 when (result) {
                     is Resource.Success -> {
+                        // Guard: if session observer already handled this (race condition), skip
+                        if (_authState.value is UiState.Success) {
+                            AppLogger.d("MQ_AUTH", "Google: session observer already completed the flow — skipping inline handling")
+                            return@launch
+                        }
                         val user = result.data ?: return@launch
                         val googleEmail = user.email
                         AppLogger.d("MQ_AUTH", "Google: userId=${user.id}, email='$googleEmail'")
@@ -383,12 +500,26 @@ class AuthViewModel(
                                         }
                                         // FIX #5: Show duplicate error state with recovery options
                                         _duplicateEmailError.update { DuplicateEmailError(email = googleEmail) }
+                                        pendingGoogleSignIn = false
+                                        isGoogleSignInInProgress = false
                                         _authState.update { UiState.Empty }
                                         return@launch
                                     }
-                                    // No existing user — new signup, proceed normally
+                                    // No existing user — new signup
                                     else -> {
                                         AppLogger.d("MQ_AUTH", "Google: no existing user for email=$googleEmail, new signup")
+                                        // FIX #3: If resolvedProfile is null (EXISTING_LOGIN path),
+                                        // redirect to onboarding instead of calling handleGoogleSignInSuccess(user, null)
+                                        // which would skip upsertUserRow() and leave no public.users row!
+                                        if (resolvedProfile == null) {
+                                            AppLogger.d("MQ_AUTH", "Google: new user from EXISTING_LOGIN — redirecting to onboarding")
+                                            pendingGoogleUser = user
+                                            _needsOnboarding.update { true }
+                                            pendingGoogleSignIn = false
+                                            isGoogleSignInInProgress = false
+                                            _authState.update { UiState.Empty }
+                                            return@launch
+                                        }
                                     }
                                 }
                             } catch (e: Exception) {
@@ -400,21 +531,28 @@ class AuthViewModel(
                     }
                     is Resource.Error -> {
                         AppLogger.e("MQ_AUTH", "Google: sign-in failed: ${result.message}")
-                        _authState.update { UiState.Error(result.message) }
+                        // The signInWith(Google) returned before OAuth completed (browser redirect).
+                        // DON'T set authState to Error — the session observer (Case 1 or Case 3)
+                        // will handle the completion when the browser redirects back.
+                        // BUT we must reset isGoogleSignInInProgress so user can retry if needed
+                        // (the 30s UI timeout in ExistingLoginScreen may reset the loading state).
                         isGoogleSignInInProgress = false
+                        AppLogger.d("MQ_AUTH", "Google: inline Error — isGoogleSignInInProgress reset, session observer will handle completion")
                     }
                     is Resource.Loading -> {}
                 }
             } catch (e: Exception) {
                 AppLogger.e("MQ_AUTH", "Google: exception during sign-in", e)
-                _authState.update { UiState.Error(e.message ?: "Google sign-in failed") }
+                pendingGoogleSignIn = false
                 isGoogleSignInInProgress = false
+                _authState.update { UiState.Error(e.message ?: "Google sign-in failed") }
             } finally {
                 // Reset flag in case of timeout or other edge cases
                 delay(500)
                 if (_authState.value is UiState.Success) {
                     isGoogleSignInInProgress = false
-                    AppLogger.d("MQ_AUTH", "signInWithGoogle() completed successfully, flag reset")
+                    pendingGoogleSignIn = false
+                    AppLogger.d("MQ_AUTH", "signInWithGoogle() completed successfully, flags reset")
                 }
             }
         }
@@ -445,22 +583,29 @@ class AuthViewModel(
             )
             AppLogger.d("MQ_AUTH", "Google: upsertUserRow (new user) result = $upsertResult")
         } else {
-            // Returning user login — update auth_provider to google
+            // Returning user login — update auth_provider to google and show recovery message
             if (user.id.isNotBlank()) {
                 try {
-                    AppLogger.d("MQ_AUTH", "Google: returning user detected, updating auth_provider to 'google'")
+                    AppLogger.d("MQ_AUTH", "Google: returning user detected (ACCOUNT RECOVERY), updating auth_provider to 'google'")
                     authRepository.updateProfile(user.id, mapOf("auth_provider" to "google"))
                     AppLogger.d("MQ_AUTH", "Google: auth_provider updated to 'google' for returning user")
+
+                    // Show account recovery message (Phase 2.2 Requirement 4)
+                    val recoveryMessage = "Account recovered! Welcome back ${user.displayName}"
+                    _accountRecoveryMessage.update { recoveryMessage }
+                    AppLogger.d("MQ_AUTH", "Google: showing recovery message: $recoveryMessage")
                 } catch (e: Exception) {
                     AppLogger.e("MQ_AUTH", "Google: failed to update auth_provider", e)
                 }
             }
         }
         pendingGoogleProfile = null
+        pendingGoogleSignIn = false
+        isGoogleSignInInProgress = false
         sessionPrefs.isLoggedIn = true
         sessionPrefs.lastAuthProvider = "google"
         _authState.update { UiState.Success(user) }
-        AppLogger.d("MQ_AUTH", "Google: authState → Success")
+        AppLogger.d("MQ_AUTH", "Google: authState → Success, all flags reset")
     }
 
     private fun observeSessionForGoogleCallback() {
@@ -488,26 +633,141 @@ class AuthViewModel(
                     }
                 }
 
-                // Case 2: Account linking (anonymous → Google)
+                // Case 2: Account linking (anonymous → Google) via merge approach
+                // signInWith(Google) created a NEW auth entry + session.
+                // We merge the anonymous user's data into this Google user.
                 val linkProvider = pendingLinkProvider
                 if (linkProvider != null && _authState.value is UiState.Loading) {
-                    AppLogger.d("MQ_AUTH", "Session observer: account linking completed for provider=$linkProvider")
-                    pendingLinkProvider = null
-                    try {
-                        // ⚠️ CRITICAL FIX: DO NOT call upsertUserRow() after linking!
-                        // The linkAccountWithGoogle() function already updated the database via updateProfile() RPC.
-                        // Calling upsertUserRow() here tries to directly update the users table with the OLD anonymous JWT,
-                        // which violates RLS policy since the user now has a linked provider.
-                        // Solution: Skip direct table upsert; the RPC call in linkAccountWithGoogle() already handled it.
+                    val anonId = pendingMergeAnonId
 
-                        AppLogger.d("MQ_AUTH", "Session observer: linking RPC already updated database, skipping direct table upsert")
-                        sessionPrefs.lastAuthProvider = linkProvider
+                    // CRITICAL: The session observer fires TWICE after signInWith(Google):
+                    // 1st emission: OLD anonymous userId (session re-auth) → SKIP
+                    // 2nd emission: NEW Google userId → THIS is the one we want
+                    if (userId == anonId) {
+                        AppLogger.d("MQ_AUTH", "Session observer: Case 2 — SKIP: userId=$userId matches anonId (old session), waiting for Google userId")
+                        return@collect  // Don't clear pendingLinkProvider — wait for next emission
+                    }
+
+                    val googleId = userId
+                    pendingLinkProvider = null
+                    pendingMergeAnonId = null
+                    AppLogger.d("MQ_AUTH", "Session observer: Case 2 — merge anon=$anonId → google=$googleId")
+
+                    try {
+                        // Extract email with retry (session may need a moment to update)
+                        var googleEmail = ""
+                        for (attempt in 1..3) {
+                            googleEmail = authRepository.getCurrentUserEmail() ?: ""
+                            if (googleEmail.isNotBlank()) break
+                            if (attempt < 3) delay(500)
+                        }
+                        if (googleEmail.isBlank()) {
+                            throw Exception("Google email not available after OAuth")
+                        }
+
+                        // Validate email isn't used by a different existing user
+                        try {
+                            val existing = authRepository.findExistingUser(email = googleEmail)
+                            if (existing != null && existing.id != anonId && existing.id != googleId) {
+                                snackbarManager.showError("This email is already linked to another account.")
+                                _isLinkingSheetVisible.update { false }
+                                _authState.update { UiState.Empty }
+                                return@collect
+                            }
+                        } catch (_: Exception) {}
+
+                        // Merge: clone anon profile → Google user, transfer child data, delete anon
+                        if (anonId != null && anonId != googleId) {
+                            authRepository.mergeAnonymousToGoogle(anonId, googleId, googleEmail)
+                            AppLogger.d("MQ_AUTH", "Session observer: Case 2 — merge SUCCESS")
+                        }
+
+                        sessionPrefs.isLoggedIn = true
+                        sessionPrefs.lastAuthProvider = "google"
                         _isLinkingSheetVisible.update { false }
+                        snackbarManager.showSuccess("Google account linked successfully!")
                         _authState.update { UiState.Success(null) }
-                        AppLogger.d("MQ_AUTH", "Session observer: linking SUCCESS - database updated via RPC in linkAccountWithGoogle()")
                     } catch (e: Exception) {
-                        AppLogger.e("MQ_AUTH", "Session observer: linking failed", e)
+                        AppLogger.e("MQ_AUTH", "Session observer: Case 2 — FAILED: ${e.message}", e)
+                        snackbarManager.showError("Account linking failed. Please try again.")
+                        _isLinkingSheetVisible.update { false }
                         _authState.update { UiState.Error("Account linking failed. Please try again.") }
+                    }
+                }
+
+                // Case 3: Google sign-in from EXISTING_LOGIN path (no pending profile)
+                // When user clicks "I already have an account" → "Continue with Google",
+                // pendingGoogleProfile is null but pendingGoogleSignIn is true.
+                // The inline signInWithGoogle() may return before OAuth completes (browser redirect),
+                // so the session observer must handle the completion here.
+                if (pendingGoogleSignIn && pendingGoogleProfile == null && pendingLinkProvider == null
+                    && _authState.value !is UiState.Success) {
+                    AppLogger.d("MQ_AUTH", "Session observer: Case 3 — EXISTING_LOGIN Google sign-in completed, userId=$userId")
+                    try {
+                        // Get email from session directly (doesn't need public.users row)
+                        val googleEmail = authRepository.getCurrentUserEmail()
+                        AppLogger.d("MQ_AUTH", "Session observer: Case 3 — email=${if (googleEmail.isNullOrBlank()) "NULL" else "${googleEmail.length} chars"}")
+
+                        // Try to get full user from public.users (may fail for new users)
+                        val user = try { authRepository.getCurrentUser() } catch (_: Exception) { null }
+
+                        if (user != null) {
+                            // User has a public.users row — check if it's the same user or duplicate
+                            AppLogger.d("MQ_AUTH", "Session observer: Case 3 — existing profile found")
+                            if (!googleEmail.isNullOrBlank()) {
+                                val existing = try { authRepository.findExistingUser(email = googleEmail) } catch (_: Exception) { null }
+                                when {
+                                    existing != null && existing.id == user.id -> {
+                                        AppLogger.d("MQ_AUTH", "Session observer: Case 3 — RETURNING USER (same id)")
+                                        handleGoogleSignInSuccess(user, null)
+                                    }
+                                    existing != null && existing.id != user.id -> {
+                                        AppLogger.e("MQ_AUTH", "Session observer: Case 3 — DUPLICATE email detected!")
+                                        try { authRepository.signOut() } catch (_: Exception) {}
+                                        _duplicateEmailError.update { DuplicateEmailError(email = googleEmail) }
+                                        pendingGoogleSignIn = false
+                                        isGoogleSignInInProgress = false
+                                        _authState.update { UiState.Empty }
+                                    }
+                                    else -> {
+                                        // User exists in public.users but findExistingUser by email didn't match
+                                        // Treat as returning user
+                                        AppLogger.d("MQ_AUTH", "Session observer: Case 3 — user has profile, treating as returning")
+                                        handleGoogleSignInSuccess(user, null)
+                                    }
+                                }
+                            } else {
+                                // No email but user exists — returning user
+                                handleGoogleSignInSuccess(user, null)
+                            }
+                        } else {
+                            // FIX #1: getCurrentUser() returned null = NO public.users row
+                            // User authenticated in auth.users but needs onboarding to create public.users row
+                            AppLogger.d("MQ_AUTH", "Session observer: Case 3 — NO public.users row, needs onboarding")
+
+                            // Build minimal User from session data (email + userId only)
+                            // Display name will be collected during onboarding STEP1
+                            val minimalUser = User(
+                                id = userId,
+                                displayName = "",
+                                email = googleEmail,
+                                authProvider = "google",
+                                isAnonymous = false,
+                                avatarId = 1,
+                                gradeId = "",
+                            )
+                            pendingGoogleUser = minimalUser
+                            _needsOnboarding.update { true }
+                            pendingGoogleSignIn = false
+                            isGoogleSignInInProgress = false
+                            _authState.update { UiState.Empty }
+                            AppLogger.d("MQ_AUTH", "Session observer: Case 3 — stashed user id=$userId, redirecting to onboarding")
+                        }
+                    } catch (e: Exception) {
+                        AppLogger.e("MQ_AUTH", "Session observer: Case 3 — exception", e)
+                        pendingGoogleSignIn = false
+                        isGoogleSignInInProgress = false
+                        _authState.update { UiState.Error("Sign-in failed. Please try again.") }
                     }
                 }
             }
@@ -518,6 +778,7 @@ class AuthViewModel(
 
     fun signInAnonymously(profile: OnboardingProfile? = null) {
         AppLogger.d("MQ_AUTH", "signInAnonymously() called")
+        resetStaleAuthState()
         viewModelScope.launch(exceptionHandler) {
             _authState.update { UiState.Empty }
 
@@ -579,6 +840,7 @@ class AuthViewModel(
     fun setPendingProfile(profile: OnboardingProfile?) { pendingProfile = profile }
 
     fun sendOtp(phone: String) {
+        resetStaleAuthState()
         viewModelScope.launch(exceptionHandler) {
             _authState.update { UiState.Empty }
             _authState.update { UiState.Loading }
@@ -669,6 +931,10 @@ class AuthViewModel(
         _isLinkingSheetVisible.update { false }
     }
 
+    fun clearLinkingSnackbar() {
+        // No-op: snackbar is now managed globally by SnackbarManager
+    }
+
     // ── Link confirmation (#13: Account takeover protection) ──────────────
 
     /** Show confirmation dialog before linking. */
@@ -698,10 +964,24 @@ class AuthViewModel(
     }
 
     fun linkAccount(provider: String) {
+        // Prevent double-tap: if linking is already in progress, ignore
+        if (pendingLinkProvider != null) {
+            AppLogger.d("MQ_AUTH", "linkAccount($provider): BLOCKED — already in progress (pendingLinkProvider=${pendingLinkProvider})")
+            return
+        }
         viewModelScope.launch(exceptionHandler) {
             _authState.update { UiState.Empty }
             _authState.update { UiState.Loading }
-            AppLogger.d("MQ_AUTH", "linkAccount($provider): starting — setting pendingLinkProvider")
+            AppLogger.d("MQ_AUTH", "linkAccount($provider): starting")
+
+            // Stash anonymous user ID BEFORE signInWith replaces the session
+            try {
+                val currentUser = authRepository.getCurrentUser()
+                pendingMergeAnonId = currentUser?.id
+                AppLogger.d("MQ_AUTH", "linkAccount: stashed anonId=${pendingMergeAnonId}")
+            } catch (e: Exception) {
+                AppLogger.e("MQ_AUTH", "linkAccount: failed to stash anonymous user", e)
+            }
 
             // Set pending flag so session observer can detect when browser OAuth completes
             pendingLinkProvider = provider
@@ -726,41 +1006,16 @@ class AuthViewModel(
                 // The session observer will handle completion.
                 when (result) {
                     is Resource.Success -> {
-                        AppLogger.d("MQ_AUTH", "linkAccount($provider): linkIdentity returned SUCCESS")
-                        // If the suspend call actually completed (e.g. on web), handle inline
-                        if (pendingLinkProvider != null) {
-                            pendingLinkProvider = null
-                            try {
-                                val currentUser = authRepository.getCurrentUser()
-                                if (currentUser != null) {
-                                    val newProvider = when {
-                                        provider == "google" && currentUser.authProvider == "phone" -> "google_and_phone"
-                                        provider == "google" && currentUser.authProvider == "anonymous" -> "google"
-                                        else -> "google_and_phone"
-                                    }
-                                    // Get email from Supabase session for linking (FIX #1)
-                                    val email = authRepository.getCurrentUserEmail()
-                                    authRepository.upsertUserRow(
-                                        userId = currentUser.id,
-                                        displayName = currentUser.displayName,
-                                        avatarId = currentUser.avatarId,
-                                        gradeId = currentUser.gradeId,
-                                        authProvider = newProvider,
-                                        email = email,
-                                    )
-                                    AppLogger.d("MQ_AUTH", "linkAccount: auth_provider → '$newProvider', email='$email'")
-                                }
-                            } catch (e: Exception) {
-                                AppLogger.e("MQ_AUTH", "linkAccount: failed to update auth_provider", e)
-                            }
-                            sessionPrefs.lastAuthProvider = provider
-                            _isLinkingSheetVisible.update { false }
-                            _authState.update { UiState.Success(null) }
-                        }
+                        // linkIdentity(Google) returns immediately after opening the browser.
+                        // The actual linking + DB update happens in session observer Case 2
+                        // when the user returns from OAuth and the session updates.
+                        AppLogger.d("MQ_AUTH", "linkAccount($provider): browser opened, waiting for session observer Case 2")
                     }
                     is Resource.Error -> {
                         pendingLinkProvider = null
                         _authState.update { UiState.Error(result.message) }
+                        snackbarManager.showError(result.message)
+                        AppLogger.d("MQ_AUTH", "linkAccount: error: ${result.message}")
                     }
                     is Resource.Loading -> {}
                 }

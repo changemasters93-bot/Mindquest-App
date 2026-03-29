@@ -41,6 +41,7 @@ import com.android.mindquest.domain.usecase.SubmitSingleAnswerUseCase
 import com.android.mindquest.domain.usecase.SubmitTournamentUseCase
 import com.android.mindquest.domain.usecase.UpdateProfileUseCase
 import com.android.mindquest.core.prefs.SessionPrefs
+import com.android.mindquest.core.util.SnackbarManager
 import com.android.mindquest.presentation.quiz.QuizStateManager
 import com.android.mindquest.presentation.auth.AuthViewModel
 import com.android.mindquest.presentation.chapters.ChaptersViewModel
@@ -111,12 +112,13 @@ val appModule = module {
     // Registered as factory{} instead of viewModelOf() to avoid the
     // koin-compose-viewmodel IR crash on iOS/Native (Kotlin 2.1.0 + Compose 1.7.3).
     // Retrieved via koinInject<T>() in composables.
-    single { AuthViewModel(get(), get(), get()) }  // single: auth state + reference data (grades/countries) are global
+    single { SnackbarManager() }
+    single { AuthViewModel(get(), get(), get(), get()) }  // single: auth state + reference data (grades/countries) are global
     factory { HomeViewModel(get(), get(), get()) }
     factory { ChaptersViewModel(get(), get()) }
     factory { QuizViewModel(get(), get(), get(), get(), get()) }
     factory { LeaderboardViewModel(get()) }
     factory { StatsViewModel(get()) }
-    factory { ProfileViewModel(get(), get(), get(), get()) }
+    factory { ProfileViewModel(get(), get(), get(), get(), get()) }
     factory { TournamentViewModel(get(), get(), get(), get()) }
 }

@@ -506,6 +506,25 @@ class ApiService(private val client: SupabaseClient) {
         }
     }
 
+    /** Merge anonymous user into Google user (clone profile + transfer all child data). */
+    suspend fun mergeAnonymousToGoogle(anonId: String, googleId: String, email: String) {
+        AppLogger.d("MQ_API", "🔵 RPC: merge_anonymous_to_google | anon=$anonId → google=$googleId")
+        return try {
+            client.postgrest.rpc(
+                function = "merge_anonymous_to_google",
+                parameters = buildJsonObject {
+                    put("p_anon_id", anonId)
+                    put("p_google_id", googleId)
+                    put("p_email", email)
+                }
+            )
+            AppLogger.d("MQ_API", "✅ RPC: merge_anonymous_to_google SUCCESS")
+        } catch (e: Exception) {
+            AppLogger.e("MQ_API", "❌ RPC: merge_anonymous_to_google FAILED | Error: ${e.message}", e)
+            throw e
+        }
+    }
+
     // ── Reference data (direct table reads) ──────────────────────────────
 
     suspend fun getGrades(): List<GradeDto> {
