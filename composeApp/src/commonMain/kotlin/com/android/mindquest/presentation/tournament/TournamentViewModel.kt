@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
+import com.android.mindquest.core.util.SnackbarManager
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.Quiz
 import com.android.mindquest.domain.model.QuizAnswer
@@ -50,6 +51,7 @@ class TournamentViewModel(
     private val startTournamentUseCase: StartTournamentUseCase,
     private val submitTournamentUseCase: SubmitTournamentUseCase,
     private val getTournamentEntryUseCase: GetTournamentEntryUseCase,
+    private val snackbarManager: SnackbarManager,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -100,6 +102,7 @@ class TournamentViewModel(
                 }
                 is Resource.Error -> {
                     _tournamentState.value = UiState.Error(resource.message)
+                    snackbarManager.showError("Failed to load tournament.")
                 }
                 is Resource.Loading -> { /* no-op */ }
             }
@@ -129,6 +132,7 @@ class TournamentViewModel(
                 }
                 is Resource.Error -> {
                     _entryState.value = UiState.Error(resource.message)
+                    snackbarManager.showError("Failed to start tournament. Please try again.")
                 }
                 is Resource.Loading -> { /* no-op */ }
             }
@@ -299,6 +303,7 @@ class TournamentViewModel(
                 }
                 is Resource.Error -> {
                     _entryState.value = UiState.Error(resource.message)
+                    snackbarManager.showError("Failed to resume tournament.")
                 }
                 is Resource.Loading -> { /* no-op */ }
             }

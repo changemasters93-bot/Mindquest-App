@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
+import com.android.mindquest.core.util.SnackbarManager
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.NudgeHintType
 import com.android.mindquest.domain.model.NudgeState
@@ -90,6 +91,7 @@ class QuizViewModel(
     private val submitSingleAnswer: SubmitSingleAnswerUseCase,
     private val getQuizWithQuestions: GetQuizWithQuestionsUseCase,
     private val quizStateManager: QuizStateManager,
+    private val snackbarManager: SnackbarManager,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -189,6 +191,7 @@ class QuizViewModel(
                     }
                     is Resource.Error -> {
                         _resultState.value = UiState.Error(result.message)
+                        snackbarManager.showError("Failed to load quiz. Please try again.")
                     }
                     is Resource.Loading -> { /* no-op */ }
                 }
@@ -639,7 +642,10 @@ class QuizViewModel(
                         )
                         when (val result = submitQuizAttempt(payload)) {
                             is Resource.Success -> _resultState.value = UiState.Success(result.data)
-                            is Resource.Error -> _resultState.value = UiState.Error(result.message)
+                            is Resource.Error -> {
+                                _resultState.value = UiState.Error(result.message)
+                                snackbarManager.showError("Failed to submit quiz. Please retry.")
+                            }
                             is Resource.Loading -> { /* no-op */ }
                         }
                     }
@@ -648,7 +654,10 @@ class QuizViewModel(
                         val entryId = _config.tournamentEntryId ?: return@withContext
                         when (val result = submitTournament(entryId, _answers.toList(), pendingSubmissionTimeTaken)) {
                             is Resource.Success -> _resultState.value = UiState.Success(result.data)
-                            is Resource.Error -> _resultState.value = UiState.Error(result.message)
+                            is Resource.Error -> {
+                                _resultState.value = UiState.Error(result.message)
+                                snackbarManager.showError("Failed to submit tournament results.")
+                            }
                             is Resource.Loading -> { /* no-op */ }
                         }
                     }

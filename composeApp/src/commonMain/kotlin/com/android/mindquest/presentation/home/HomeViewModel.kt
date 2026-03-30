@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.android.mindquest.core.session.SessionProvider
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
+import com.android.mindquest.core.util.SnackbarManager
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.DailyChallenge
 import com.android.mindquest.domain.model.DashboardData
@@ -23,6 +24,7 @@ class HomeViewModel(
     private val getDashboard: GetDashboardUseCase,
     private val generateDailyChallenges: GenerateDailyChallengesUseCase,
     private val sessionProvider: SessionProvider,
+    private val snackbarManager: SnackbarManager,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -63,6 +65,7 @@ class HomeViewModel(
             if (currentUserId.isBlank()) {
                 AppLogger.e("MQ_HOME", "loadAll: userId still EMPTY after wait — aborting")
                 _dashboardState.update { UiState.Error("Session not ready. Please try again.") }
+                snackbarManager.showError("Session not ready. Please try again.")
                 return@launch
             }
 
@@ -79,6 +82,7 @@ class HomeViewModel(
                     AppLogger.e("MQ_HOME", "loadAll: dashboard ERROR = ${result.message}")
                     _dashboardState.update { UiState.Error(result.message) }
                     _dailyChallenges.update { UiState.Empty }
+                    snackbarManager.showError("Failed to load dashboard. Pull down to retry.")
                 }
                 is Resource.Loading -> { /* no-op */ }
             }
@@ -115,6 +119,7 @@ class HomeViewModel(
                 is Resource.Error -> {
                     _dashboardState.update { UiState.Error(result.message) }
                     _dailyChallenges.update { UiState.Empty }
+                    snackbarManager.showError("Refresh failed. Please try again.")
                 }
                 is Resource.Loading -> { /* no-op */ }
             }

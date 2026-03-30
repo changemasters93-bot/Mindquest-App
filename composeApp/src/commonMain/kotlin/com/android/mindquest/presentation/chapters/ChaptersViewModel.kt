@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.android.mindquest.core.constants.AppConstants
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
+import com.android.mindquest.core.util.SnackbarManager
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.Chapter
 import com.android.mindquest.domain.model.ChapterState
@@ -21,6 +22,7 @@ import kotlinx.coroutines.launch
 class ChaptersViewModel(
     private val getModuleFull: GetModuleFullUseCase,
     private val getChapterQuizzes: GetChapterQuizzesUseCase,
+    private val snackbarManager: SnackbarManager,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -68,7 +70,10 @@ class ChaptersViewModel(
                     } ?: chapters.firstOrNull()
                     nextIncomplete?.let { expandChapter(it.id, userId) }
                 }
-                is Resource.Error -> _moduleState.value = UiState.Error(result.message)
+                is Resource.Error -> {
+                    _moduleState.value = UiState.Error(result.message)
+                    snackbarManager.showError("Failed to load chapters. Please try again.")
+                }
                 is Resource.Loading -> { /* no-op */ }
             }
         }
@@ -97,7 +102,10 @@ class ChaptersViewModel(
                     } else quizzes
                     _chapterQuizzesState.value = UiState.Success(processed)
                 }
-                is Resource.Error -> _chapterQuizzesState.value = UiState.Error(result.message)
+                is Resource.Error -> {
+                    _chapterQuizzesState.value = UiState.Error(result.message)
+                    snackbarManager.showError("Failed to load quizzes. Please try again.")
+                }
                 is Resource.Loading -> { /* no-op */ }
             }
         }

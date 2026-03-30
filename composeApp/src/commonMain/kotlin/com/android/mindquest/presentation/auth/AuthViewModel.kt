@@ -453,7 +453,7 @@ class AuthViewModel(
             pendingGoogleProfile = resolvedProfile
 
             // 60s timeout safety net — covers BOTH onboarding and existing login paths
-            viewModelScope.launch {
+            viewModelScope.launch(exceptionHandler) {
                 delay(60_000)
                 if (_authState.value is UiState.Loading && pendingGoogleSignIn) {
                     pendingGoogleProfile = null
@@ -987,12 +987,13 @@ class AuthViewModel(
             pendingLinkProvider = provider
 
             // 60s timeout for browser-based linking
-            viewModelScope.launch {
+            viewModelScope.launch(exceptionHandler) {
                 delay(60_000)
                 if (pendingLinkProvider != null && _authState.value is UiState.Loading) {
                     AppLogger.e("MQ_AUTH", "linkAccount: 60s timeout — resetting")
                     pendingLinkProvider = null
                     _authState.update { UiState.Error("Account linking timed out. Please try again.") }
+                    snackbarManager.showError("Account linking timed out. Please try again.")
                 }
             }
 

@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
+import com.android.mindquest.core.util.SnackbarManager
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.LeaderboardData
 import com.android.mindquest.domain.model.LeaderboardFilter
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch
 
 class LeaderboardViewModel(
     private val getLeaderboard: GetLeaderboardUseCase,
+    private val snackbarManager: SnackbarManager,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -71,6 +73,7 @@ class LeaderboardViewModel(
                 }
                 is Resource.Error -> {
                     _leaderboardState.value = UiState.Error(result.message)
+                    snackbarManager.showError("Failed to load leaderboard.")
                 }
                 is Resource.Loading -> { /* no-op */ }
             }
@@ -103,7 +106,9 @@ class LeaderboardViewModel(
                         _leaderboardState.value = UiState.Success(merged)
                     }
                 }
-                is Resource.Error -> { /* keep existing data, just stop loading */ }
+                is Resource.Error -> {
+                    snackbarManager.showError("Failed to load more entries.")
+                }
                 is Resource.Loading -> { /* no-op */ }
             }
             _isLoadingMore.value = false

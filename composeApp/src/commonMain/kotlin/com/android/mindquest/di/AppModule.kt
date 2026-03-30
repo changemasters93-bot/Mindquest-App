@@ -114,11 +114,11 @@ val appModule = module {
     // Retrieved via koinInject<T>() in composables.
     single { SnackbarManager() }
     single { AuthViewModel(get(), get(), get(), get()) }  // single: auth state + reference data (grades/countries) are global
-    factory { HomeViewModel(get(), get(), get()) }
-    factory { ChaptersViewModel(get(), get()) }
-    factory { QuizViewModel(get(), get(), get(), get(), get()) }
-    factory { LeaderboardViewModel(get()) }
-    factory { StatsViewModel(get()) }
+    factory { HomeViewModel(get(), get(), get(), get()) }
+    factory { ChaptersViewModel(get(), get(), get()) }
+    factory { QuizViewModel(get(), get(), get(), get(), get(), get()) }
+    factory { LeaderboardViewModel(get(), get()) }
+    factory { StatsViewModel(get(), get()) }
     factory { ProfileViewModel(get(), get(), get(), get(), get()) }
-    factory { TournamentViewModel(get(), get(), get(), get()) }
+    factory { TournamentViewModel(get(), get(), get(), get(), get()) }
 }
