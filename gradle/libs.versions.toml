@@ -76,6 +76,7 @@ chucker-noop = { group = "com.github.chuckerteam.chucker", name = "library-no-op
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebase-bom" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics-ktx" }
 firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics-ktx" }
+firebase-config = { group = "com.google.firebase", name = "firebase-config-ktx" }
 
 # Android specific
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }

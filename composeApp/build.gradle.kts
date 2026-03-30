@@ -178,6 +178,7 @@ dependencies {
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.crashlytics)
+    implementation(libs.firebase.config)
 }
 
 // SQLDelight config disabled along with plugin (see plugins block comment).

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<defaultsMap>
+    <entry>
+        <key>android_update_config</key>
+        <value>{"min_version_code":1,"latest_version_code":1,"update_message":"A new version of Mindquest is available!","store_url":"https://play.google.com/store/apps/details?id=com.android.mindquest"}</value>
+    </entry>
+    <entry>
+        <key>ios_update_config</key>
+        <value>{"min_version_code":1,"latest_version_code":1,"update_message":"A new version of Mindquest is available!","store_url":"https://apps.apple.com/app/mindquest"}</value>
+    </entry>
+</defaultsMap>
