@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
 import com.android.mindquest.core.util.SnackbarManager
+import com.android.mindquest.core.analytics.AnalyticsTracker
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.LeaderboardData
 import com.android.mindquest.domain.model.LeaderboardFilter
@@ -18,6 +19,7 @@ import kotlinx.coroutines.launch
 class LeaderboardViewModel(
     private val getLeaderboard: GetLeaderboardUseCase,
     private val snackbarManager: SnackbarManager,
+    private val analyticsTracker: AnalyticsTracker,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->

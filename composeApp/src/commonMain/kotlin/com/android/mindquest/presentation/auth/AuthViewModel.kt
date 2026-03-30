@@ -7,6 +7,8 @@ import com.android.mindquest.core.prefs.SessionPrefs
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
 import com.android.mindquest.core.util.SnackbarManager
+import com.android.mindquest.core.analytics.AnalyticsTracker
+import com.android.mindquest.core.analytics.AnalyticsEvent
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.City
 import com.android.mindquest.domain.model.Country
@@ -88,6 +90,7 @@ class AuthViewModel(
     private val referenceDataRepository: ReferenceDataRepository,
     private val sessionPrefs: SessionPrefs,
     private val snackbarManager: SnackbarManager,
+    private val analyticsTracker: AnalyticsTracker,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -263,6 +266,9 @@ class AuthViewModel(
                     if (user != null && sessionPrefs.isLoggedIn) SessionCheck.LOGGED_IN
                     else if (user != null && !user.isAnonymous) SessionCheck.LOGGED_IN
                     else SessionCheck.NOT_LOGGED_IN
+                }
+                if (user != null) {
+                    analyticsTracker.setUserId(user.id)
                 }
             } catch (_: Exception) {
                 _sessionCheck.update { SessionCheck.NOT_LOGGED_IN }
@@ -605,6 +611,12 @@ class AuthViewModel(
         sessionPrefs.isLoggedIn = true
         sessionPrefs.lastAuthProvider = "google"
         _authState.update { UiState.Success(user) }
+        analyticsTracker.setUserId(user.id)
+        if (profile != null) {
+            analyticsTracker.logEvent(AnalyticsEvent.SignUp(method = "google"))
+        } else {
+            analyticsTracker.logEvent(AnalyticsEvent.Login(method = "google"))
+        }
         AppLogger.d("MQ_AUTH", "Google: authState → Success, all flags reset")
     }
 
@@ -686,6 +698,7 @@ class AuthViewModel(
                         sessionPrefs.lastAuthProvider = "google"
                         _isLinkingSheetVisible.update { false }
                         snackbarManager.showSuccess("Google account linked successfully!")
+                        analyticsTracker.logEvent(AnalyticsEvent.AccountLinked(provider = "google"))
                         _authState.update { UiState.Success(null) }
                     } catch (e: Exception) {
                         AppLogger.e("MQ_AUTH", "Session observer: Case 2 — FAILED: ${e.message}", e)
@@ -810,6 +823,8 @@ class AuthViewModel(
                         sessionPrefs.isLoggedIn = true
                         sessionPrefs.lastAuthProvider = "anonymous"
                         _authState.update { UiState.Success(user) }
+                        analyticsTracker.setUserId(user.id)
+                        analyticsTracker.logEvent(AnalyticsEvent.SignUp(method = "anonymous"))
                     }
                     is Resource.Error -> _authState.update { UiState.Error(result.message) }
                     is Resource.Loading -> {}
@@ -896,6 +911,11 @@ class AuthViewModel(
                         sessionPrefs.lastAuthProvider = "phone"
                         _authScreen.update { AuthScreenState.VERIFIED }
                         _authState.update { UiState.Success(user) }
+                        analyticsTracker.setUserId(user.id)
+                        analyticsTracker.logEvent(
+                            if (profile != null) AnalyticsEvent.SignUp(method = "phone")
+                            else AnalyticsEvent.Login(method = "phone")
+                        )
                     }
                     is Resource.Error -> _authState.update { UiState.Error(result.message) }
                     is Resource.Loading -> {}

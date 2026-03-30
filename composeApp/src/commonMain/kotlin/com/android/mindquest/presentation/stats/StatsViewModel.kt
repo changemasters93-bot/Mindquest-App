@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
 import com.android.mindquest.core.util.SnackbarManager
+import com.android.mindquest.core.analytics.AnalyticsTracker
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.StatsData
 import com.android.mindquest.domain.usecase.GetUserStatsUseCase
@@ -17,6 +18,7 @@ import kotlinx.coroutines.launch
 class StatsViewModel(
     private val getUserStats: GetUserStatsUseCase,
     private val snackbarManager: SnackbarManager,
+    private val analyticsTracker: AnalyticsTracker,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->

@@ -6,6 +6,8 @@ import com.android.mindquest.core.prefs.SessionPrefs
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
 import com.android.mindquest.core.util.SnackbarManager
+import com.android.mindquest.core.analytics.AnalyticsEvent
+import com.android.mindquest.core.analytics.AnalyticsTracker
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.ProfileData
 import com.android.mindquest.domain.repository.AuthRepository
@@ -23,6 +25,7 @@ class ProfileViewModel(
     private val authRepository: AuthRepository,
     private val sessionPrefs: SessionPrefs,
     private val snackbarManager: SnackbarManager,
+    private val analyticsTracker: AnalyticsTracker,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -56,6 +59,7 @@ class ProfileViewModel(
                 is Resource.Success -> {
                     _updateState.value = UiState.Success(Unit)
                     snackbarManager.showSuccess("Display name updated!")
+                    analyticsTracker.logEvent(AnalyticsEvent.ProfileUpdated(fieldsChanged = listOf("display_name")))
                     loadProfile(userId)
                 }
                 is Resource.Error -> {
@@ -74,6 +78,7 @@ class ProfileViewModel(
                 is Resource.Success -> {
                     _updateState.value = UiState.Success(Unit)
                     snackbarManager.showSuccess("Avatar updated!")
+                    analyticsTracker.logEvent(AnalyticsEvent.ProfileUpdated(fieldsChanged = listOf("avatar_id")))
                     loadProfile(userId)
                 }
                 is Resource.Error -> {
@@ -90,6 +95,8 @@ class ProfileViewModel(
         viewModelScope.launch(exceptionHandler) {
             try { authRepository.signOut() } catch (_: Exception) { /* best-effort */ }
             sessionPrefs.clear()
+            analyticsTracker.logEvent(AnalyticsEvent.Logout)
+            analyticsTracker.setUserId(null)
         }
     }
 }

@@ -27,6 +27,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import com.android.mindquest.core.analytics.AnalyticsTracker
+import com.android.mindquest.core.analytics.ScreenNameMapper
 import com.android.mindquest.core.constants.AppConstants
 import com.android.mindquest.core.session.SessionProvider
 import com.android.mindquest.core.util.UiState
@@ -82,6 +84,14 @@ fun MindquestNavGraph(
 
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
+
+    // ── Auto screen tracking ─────────────────────────────────────────
+    val analyticsTracker = koinInject<AnalyticsTracker>()
+    LaunchedEffect(currentRoute) {
+        ScreenNameMapper.fromRoute(currentRoute)?.let {
+            analyticsTracker.logScreenView(it)
+        }
+    }
 
     val showBottomNav = currentRoute in NavRoutes.BOTTOM_NAV_ROUTES
 

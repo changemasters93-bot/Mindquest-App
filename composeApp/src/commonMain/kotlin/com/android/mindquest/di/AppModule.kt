@@ -40,8 +40,12 @@ import com.android.mindquest.domain.usecase.SubmitQuizAttemptUseCase
 import com.android.mindquest.domain.usecase.SubmitSingleAnswerUseCase
 import com.android.mindquest.domain.usecase.SubmitTournamentUseCase
 import com.android.mindquest.domain.usecase.UpdateProfileUseCase
+import com.android.mindquest.core.analytics.AnalyticsTracker
+import com.android.mindquest.core.analytics.CompositeAnalyticsTracker
+import com.android.mindquest.core.analytics.DebugAnalyticsTracker
 import com.android.mindquest.core.prefs.SessionPrefs
 import com.android.mindquest.core.util.SnackbarManager
+import org.koin.core.qualifier.named
 import com.android.mindquest.presentation.quiz.QuizStateManager
 import com.android.mindquest.presentation.auth.AuthViewModel
 import com.android.mindquest.presentation.chapters.ChaptersViewModel
@@ -108,17 +112,27 @@ val appModule = module {
     factory { SubmitSingleAnswerUseCase(get()) }
     factory { GetReferenceDataUseCase(get()) }
 
+    // ── Analytics ──────────────────────────────────────────────────────
+    single<AnalyticsTracker> {
+        CompositeAnalyticsTracker(
+            trackers = buildList {
+                getOrNull<AnalyticsTracker>(named("platform"))?.let { add(it) }
+                add(DebugAnalyticsTracker())
+            }
+        )
+    }
+
     // ── ViewModels ──────────────────────────────────────────────────────
     // Registered as factory{} instead of viewModelOf() to avoid the
     // koin-compose-viewmodel IR crash on iOS/Native (Kotlin 2.1.0 + Compose 1.7.3).
     // Retrieved via koinInject<T>() in composables.
     single { SnackbarManager() }
-    single { AuthViewModel(get(), get(), get(), get()) }  // single: auth state + reference data (grades/countries) are global
-    factory { HomeViewModel(get(), get(), get(), get()) }
-    factory { ChaptersViewModel(get(), get(), get()) }
-    factory { QuizViewModel(get(), get(), get(), get(), get(), get()) }
-    factory { LeaderboardViewModel(get(), get()) }
-    factory { StatsViewModel(get(), get()) }
-    factory { ProfileViewModel(get(), get(), get(), get(), get()) }
-    factory { TournamentViewModel(get(), get(), get(), get(), get()) }
+    single { AuthViewModel(get(), get(), get(), get(), get()) }  // single: auth state + reference data (grades/countries) are global
+    factory { HomeViewModel(get(), get(), get(), get(), get()) }
+    factory { ChaptersViewModel(get(), get(), get(), get()) }
+    factory { QuizViewModel(get(), get(), get(), get(), get(), get(), get()) }
+    factory { LeaderboardViewModel(get(), get(), get()) }
+    factory { StatsViewModel(get(), get(), get()) }
+    factory { ProfileViewModel(get(), get(), get(), get(), get(), get()) }
+    factory { TournamentViewModel(get(), get(), get(), get(), get(), get()) }
 }

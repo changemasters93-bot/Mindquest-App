@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
 import com.android.mindquest.core.util.SnackbarManager
+import com.android.mindquest.core.analytics.AnalyticsEvent
+import com.android.mindquest.core.analytics.AnalyticsTracker
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.NudgeHintType
 import com.android.mindquest.domain.model.NudgeState
@@ -92,6 +94,7 @@ class QuizViewModel(
     private val getQuizWithQuestions: GetQuizWithQuestionsUseCase,
     private val quizStateManager: QuizStateManager,
     private val snackbarManager: SnackbarManager,
+    private val analyticsTracker: AnalyticsTracker,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -155,6 +158,11 @@ class QuizViewModel(
         _timeLeft.value = quiz.timeLimitSeconds
         _resultState.value = UiState.Loading
         startTimer(quiz.timeLimitSeconds)
+        analyticsTracker.logEvent(AnalyticsEvent.QuizStarted(
+            quizId = quiz.id,
+            moduleTitle = QuizSessionHolder.moduleTitle ?: "",
+            quizType = _config.behavior.name.lowercase(),
+        ))
     }
 
     /**
@@ -282,6 +290,11 @@ class QuizViewModel(
             timeMs = now - questionStartMs,
         )
         _answers.add(answer)
+        analyticsTracker.logEvent(AnalyticsEvent.QuestionAnswered(
+            quizId = quizId,
+            questionIndex = state.currentIndex,
+            isCorrect = isCorrect,
+        ))
 
         // Config: show or hide feedback
         // - showAnswerFeedback → persistent green/red (user clicks Next manually)
@@ -606,6 +619,13 @@ class QuizViewModel(
 
         val now = Clock.System.now().toEpochMilliseconds()
         pendingSubmissionTimeTaken = ((now - startTimeMs) / 1000).toInt()
+        analyticsTracker.logEvent(AnalyticsEvent.QuizCompleted(
+            quizId = quizId,
+            score = _answers.count { it.isCorrect },
+            totalQuestions = _questions.size,
+            quizType = _config.behavior.name.lowercase(),
+            durationSeconds = pendingSubmissionTimeTaken.toLong(),
+        ))
 
         performSubmission()
     }

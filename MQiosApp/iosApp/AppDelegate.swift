@@ -24,8 +24,11 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         // ── Firebase init ────────────────────────────────────────────
         FirebaseApp.configure()
 
+        // ── Analytics bridge ─────────────────────────────────────────
+        IosAnalyticsTracker.shared.setBridge(bridge: AnalyticsBridge.shared)
+
         #if DEBUG
-        print("🟢 [MQ_IOS] Firebase configured")
+        print("🟢 [MQ_IOS] Firebase configured + analytics bridge set")
         #endif
 
         // ── Remote Config: load defaults from plist, fetch & activate ─

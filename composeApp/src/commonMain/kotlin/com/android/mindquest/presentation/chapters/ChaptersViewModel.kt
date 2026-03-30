@@ -6,6 +6,8 @@ import com.android.mindquest.core.constants.AppConstants
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
 import com.android.mindquest.core.util.SnackbarManager
+import com.android.mindquest.core.analytics.AnalyticsEvent
+import com.android.mindquest.core.analytics.AnalyticsTracker
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.Chapter
 import com.android.mindquest.domain.model.ChapterState
@@ -23,6 +25,7 @@ class ChaptersViewModel(
     private val getModuleFull: GetModuleFullUseCase,
     private val getChapterQuizzes: GetChapterQuizzesUseCase,
     private val snackbarManager: SnackbarManager,
+    private val analyticsTracker: AnalyticsTracker,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -51,6 +54,10 @@ class ChaptersViewModel(
             when (val result = getModuleFull(moduleId, userId)) {
                 is Resource.Success -> {
                     _moduleState.value = UiState.Success(result.data)
+                    analyticsTracker.logEvent(AnalyticsEvent.ModuleOpened(
+                        moduleId = moduleId,
+                        moduleTitle = result.data.first.title,
+                    ))
                     // Auto-expand the chapter the user should continue playing.
                     // A chapter is "effectively completed" when its state is
                     // COMPLETED **or** progress shows all quizzes done (handles

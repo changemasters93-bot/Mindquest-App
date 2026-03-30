@@ -6,6 +6,8 @@ import com.android.mindquest.core.session.SessionProvider
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
 import com.android.mindquest.core.util.SnackbarManager
+import com.android.mindquest.core.analytics.AnalyticsEvent
+import com.android.mindquest.core.analytics.AnalyticsTracker
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.DailyChallenge
 import com.android.mindquest.domain.model.DashboardData
@@ -25,6 +27,7 @@ class HomeViewModel(
     private val generateDailyChallenges: GenerateDailyChallengesUseCase,
     private val sessionProvider: SessionProvider,
     private val snackbarManager: SnackbarManager,
+    private val analyticsTracker: AnalyticsTracker,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -136,6 +139,7 @@ class HomeViewModel(
         val updated = generateDailyChallenges.markDone(quizId)
         if (updated != null) {
             AppLogger.d("MQ_AUTH", "HomeVM: markChallengeDone($quizId) → ${updated.count { it.isDone }}/${updated.size} done")
+            analyticsTracker.logEvent(AnalyticsEvent.DailyChallengeDone(challengeId = quizId))
             _dailyChallenges.update {
                 if (updated.isEmpty()) UiState.Empty else UiState.Success(updated)
             }

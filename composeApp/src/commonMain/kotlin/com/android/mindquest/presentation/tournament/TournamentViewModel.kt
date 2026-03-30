@@ -5,6 +5,8 @@ import androidx.lifecycle.viewModelScope
 import com.android.mindquest.core.util.AppLogger
 import com.android.mindquest.core.util.Resource
 import com.android.mindquest.core.util.SnackbarManager
+import com.android.mindquest.core.analytics.AnalyticsEvent
+import com.android.mindquest.core.analytics.AnalyticsTracker
 import com.android.mindquest.core.util.UiState
 import com.android.mindquest.domain.model.Quiz
 import com.android.mindquest.domain.model.QuizAnswer
@@ -52,6 +54,7 @@ class TournamentViewModel(
     private val submitTournamentUseCase: SubmitTournamentUseCase,
     private val getTournamentEntryUseCase: GetTournamentEntryUseCase,
     private val snackbarManager: SnackbarManager,
+    private val analyticsTracker: AnalyticsTracker,
 ) : ViewModel() {
 
     private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
@@ -123,6 +126,7 @@ class TournamentViewModel(
                     currentEntryId = entry.id
                     startTimeSeconds = entry.timeRemainingSeconds ?: 0
                     _entryState.value = UiState.Success(entry)
+                    analyticsTracker.logEvent(AnalyticsEvent.TournamentJoined(tournamentId = tournamentId))
 
                     // Quiz questions come from the start_tournament RPC response
                     _tournamentQuiz.value = startResult.quiz
@@ -373,6 +377,10 @@ class TournamentViewModel(
             when (val resource = submitTournamentUseCase(entryId, answers.toList(), timeTaken)) {
                 is Resource.Success -> {
                     _playState.update { it.copy(isFinished = true) }
+                    analyticsTracker.logEvent(AnalyticsEvent.TournamentCompleted(
+                        tournamentId = currentTournamentId ?: "",
+                        score = _playState.value.score,
+                    ))
                 }
                 is Resource.Error -> {
                     _entryState.value = UiState.Error(resource.message)
